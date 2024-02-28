@@ -1,0 +1,48 @@
+﻿@page "/"
+@inject NavigationManager Navigation
+
+<div>
+    <h2>Connection Id: @HubConnection?.ConnectionId</h2>
+    <input @bind=@ReceiverId />
+    <button @onclick=@SendFile>Send file</button>
+</div>
+
+@code {
+    HubConnection? HubConnection { get; set; }
+
+    public string? ReceiverId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        HubConnection = new HubConnectionBuilder()
+                                .WithUrl(Navigation.ToAbsoluteUri("/filehub"))
+                                .Build();
+
+        await HubConnection.StartAsync();
+    }
+
+    private async Task SendFile()
+    {
+        string path = @"path";
+
+
+        if (HubConnection is not null)
+        {
+            using var file = new FileStream(path, FileMode.Open);
+            long size = file.Length < 16384 ? file.Length : 16384;
+            byte[] buffer = new byte[size];
+            int bytesRead;
+            await HubConnection.InvokeAsync("StartSendingFile", file.Length, ReceiverId);
+            while ((bytesRead = await file.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                if (bytesRead < buffer.Length)
+                {
+                    Array.Resize(ref buffer, bytesRead);
+                }
+
+                await HubConnection.InvokeAsync("SendingFile", buffer, ReceiverId);
+            }
+            await HubConnection.InvokeAsync("EndSendingFile", ReceiverId);
+        }
+    }
+}
