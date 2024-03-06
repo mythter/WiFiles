@@ -1,0 +1,24 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+
+<div class="page">
+    <main class="main">
+        @Body
+    </main>
+    <div class="menu">
+        <div class="item">
+            Local
+        </div>
+        <div class="item">
+            Global
+        </div>
+    </div>
+</div>
+
+@code {
+
+    protected override async Task OnInitializedAsync()
+    {
+        NavigationManager.NavigateTo("local");
+    }
+}

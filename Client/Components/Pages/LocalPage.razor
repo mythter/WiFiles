@@ -1,0 +1,19 @@
+﻿@page "/local"
+@using System.Net
+@inject ILocalNetworkService lns
+
+<select>
+    @foreach (var ip in IPs)
+        {
+        <option value="@ip.ToString()">@ip.ToString()</option>
+        }
+</select>
+
+@code {
+    public List<IPAddress> IPs { get; set; } = new();
+
+    protected override void OnInitialized()
+    {
+        IPs = lns.GetAllHostIpAddressesWithGateway();
+    }
+}

@@ -1,4 +1,4 @@
-﻿using Client.Data;
+﻿using BLL;
 using Microsoft.Extensions.Logging;
 
 namespace Client
@@ -17,12 +17,12 @@ namespace Client
 
             builder.Services.AddMauiBlazorWebView();
 
+            builder.Services.AddBusinessLogicLayer();
+
 #if DEBUG
-    		builder.Services.AddBlazorWebViewDeveloperTools();
+            builder.Services.AddBlazorWebViewDeveloperTools();
     		builder.Logging.AddDebug();
 #endif
-
-            builder.Services.AddSingleton<WeatherForecastService>();
 
             return builder.Build();
         }
