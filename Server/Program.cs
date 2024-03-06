@@ -10,11 +10,12 @@ namespace Server
 
             // Add services to the container.
             builder.Services.AddRazorPages();
-            builder.Services.AddServerSideBlazor();
+            builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
             builder.Services.AddSignalR();
 
             var app = builder.Build();
+
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
@@ -30,8 +31,14 @@ namespace Server
 
             app.UseRouting();
 
-            app.MapBlazorHub();
-            app.MapFallbackToPage("/_Host");
+            app.UseAntiforgery();
+
+            app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+            app.MapFallback(context =>
+            {
+                context.Response.Redirect("/");
+                return Task.CompletedTask;
+            });
 
             app.MapHub<FileHub>("/filehub");
 
