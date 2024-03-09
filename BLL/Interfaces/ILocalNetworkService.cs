@@ -10,5 +10,6 @@ namespace BLL.Interfaces
         IPAddress? GetGatewayByHostIp(IPAddress ip);
         IPAddress? GetSubnetMaskByIp(IPAddress ip);
         IPAddress? GetSubnetMaskByHostIp(IPAddress ip);
+        IPAddress GetNetworkAddress(IPAddress ip, IPAddress mask);
     }
 }

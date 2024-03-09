@@ -88,6 +88,20 @@ namespace BLL.Services
             return gateway;
         }
 
+        public IPAddress GetNetworkAddress(IPAddress ip, IPAddress mask)
+        {
+            byte[] addressBytes = ip.GetAddressBytes();
+            byte[] subnetMaskBytes = mask.GetAddressBytes();
+            byte[] networkBytes = new byte[4];
+
+            for (int i = 0; i < addressBytes.Length; i++)
+            {
+                networkBytes[i] = (byte)(addressBytes[i] & subnetMaskBytes[i]);
+            }
+
+            return new IPAddress(networkBytes);
+        }
+
         public IPAddress? GetSubnetMaskByHostIp(IPAddress ip)
         {
             IPAddress? mask = null;
@@ -96,7 +110,7 @@ namespace BLL.Services
                 if (i.OperationalStatus == OperationalStatus.Up)
                 {
                     IPInterfaceProperties ipInterface = i.GetIPProperties();
-                    mask = ipInterface.UnicastAddresses.FirstOrDefault(u => u.Equals(ip))?.IPv4Mask;
+                    mask = ipInterface.UnicastAddresses.FirstOrDefault(u => u.Address.Equals(ip))?.IPv4Mask;
 
                     if (mask is not null)
                     {
