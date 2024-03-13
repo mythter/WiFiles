@@ -1,19 +1,95 @@
 ﻿@page "/local"
 @using System.Net
+@using System.Net.NetworkInformation
+@using System.Net.Sockets
 @inject ILocalNetworkService lns
 
 <select>
     @foreach (var ip in IPs)
-        {
+    {
         <option value="@ip.ToString()">@ip.ToString()</option>
-        }
+    }
 </select>
+
+@foreach (var ip in LocalIPs)
+{
+    <div>
+        @ip.ToString()
+    </div>
+}
 
 @code {
     public List<IPAddress> IPs { get; set; } = new();
 
-    protected override void OnInitialized()
+    public List<IPAddress> Gateways { get; set; } = new();
+
+    public List<IPAddress> LocalIPs { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
     {
-        IPs = lns.GetAllHostIpAddressesWithGateway();
+        await Task.Run(() =>
+        {
+
+            IPs = lns.GetAllHostIpAddressesWithGateway();
+            GetGateways();
+            GetLocalIPs();
+        });
+    }
+
+    private void GetGateways()
+    {
+        foreach (var ip in IPs)
+        {
+            IPAddress? gateway = lns.GetGatewayByIp(ip);
+            if (gateway is not null)
+            {
+                Gateways.Add(gateway);
+            }
+        }
+    }
+
+    private void GetLocalIPs()
+    {
+        foreach (var ip in IPs.Skip(1))
+        {
+            IPAddress? mask = lns.GetSubnetMaskByIp(ip);
+
+            if (mask is not null)
+            {
+                IPAddress network = lns.GetNetworkAddress(ip, mask);
+
+                byte[] hosts = mask.GetAddressBytes().Select(b => (byte)(byte.MaxValue - b)).ToArray();
+
+                byte[] init = new byte[4];
+                while (!hosts.SequenceEqual(init))
+                {
+                    for (int i = 3; i >= 0; i--)
+                    {
+                        if (init[i]++ == 255) continue;
+                        break;
+                    }
+
+                    var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
+
+                    Ping p = new Ping();
+                    p.PingCompleted += PingCompleted;
+                    p.SendAsync(host, host);
+                }
+            }
+        }
+    }
+
+    void PingCompleted(object sender, PingCompletedEventArgs e)
+    {
+        if (e.Reply != null &&
+            e.Reply.Status == IPStatus.Success &&
+            !IPs.Contains((IPAddress)e.UserState!) &&
+            !Gateways.Contains((IPAddress)e.UserState!) &&
+            !LocalIPs.Contains((IPAddress)e.UserState!))
+        {
+            LocalIPs.Add((IPAddress)e.UserState!);
+            // StateHasChanged();
+            InvokeAsync (StateHasChanged);
+        }
     }
 }
