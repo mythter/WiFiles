@@ -1,24 +1,31 @@
 ﻿@inherits LayoutComponentBase
-@inject NavigationManager NavigationManager
+@inject NavigationService NavigationService
 
-<div class="page">
-    <main class="main">
-        @Body
-    </main>
-    <div class="menu">
-        <div class="item">
-            Local
+<CascadingValue Value="@SendFiles" Name="SendFiles">
+    <CascadingValue Value="@SaveFolder" Name="SaveFolder">
+        <div class="page">
+            <main class="main">
+                @Body
+            </main>
+            <div class="menu">
+                <div class="item">
+                    Local
+                </div>
+                <div class="item">
+                    Global
+                </div>
+            </div>
         </div>
-        <div class="item">
-            Global
-        </div>
-    </div>
-</div>
+    </CascadingValue>
+</CascadingValue>
 
 @code {
+    public List<string> SendFiles { get; set; } = new();
+
+    public string? SaveFolder { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        NavigationManager.NavigateTo("local");
+        NavigationService.NavigateTo("local");
     }
 }

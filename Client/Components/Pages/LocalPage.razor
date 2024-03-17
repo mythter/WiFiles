@@ -2,21 +2,54 @@
 @using System.Net
 @using System.Net.NetworkInformation
 @using System.Net.Sockets
+@using CommunityToolkit.Maui.Core.Extensions
+@using CommunityToolkit.Maui.Storage
 @inject ILocalNetworkService lns
+@inject NavigationService NavigationService
 
-<select>
-    @foreach (var ip in IPs)
-    {
-        <option value="@ip.ToString()">@ip.ToString()</option>
-    }
-</select>
+<header class="header">
+    <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))">
+        <i class="ph ph-download-simple"></i>
+    </BadgeButton>
+    <BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
+                 Count="SendFiles.Count">
+        <i class="ph ph-upload-simple"></i>
+    </BadgeButton>
+</header>
 
-@foreach (var ip in LocalIPs)
-{
-    <div>
-        @ip.ToString()
+<div class="main">
+    <div class="container">
+
+        <select>
+            @foreach (var ip in IPs)
+            {
+                <option value="@ip.ToString()">@ip.ToString()</option>
+            }
+        </select>
+
+        @* <input type="file" @onchange="@FileChosen"/> *@
+        @* <InputFile OnChange="@FileChosen" /> *@
+        <button @onclick="@PickFile"> pick a file</button>
+        <button @onclick="@PickFolder"> pick a folder</button>
+
+        <div class="devices">
+            @foreach (var ip in LocalIPs)
+            {
+                <div class="device">
+                    @ip.ToString()
+                </div>
+            }
+        </div>
+
+        @FileName
+        @FolderName
+        @Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        @Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+        @Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments)
+        @Environment.GetFolderPath(Environment.SpecialFolder.Personal)
     </div>
-}
+</div>
+
 
 @code {
     public List<IPAddress> IPs { get; set; } = new();
@@ -25,15 +58,24 @@
 
     public List<IPAddress> LocalIPs { get; set; } = new();
 
+    public string? FileName { get; set; }
+    public string? FolderName { get; set; }
+    public string? Path1 { get; set; }
+
+    [CascadingParameter(Name = "SendFiles")]
+    public List<string> SendFiles { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
-        await Task.Run(() =>
-        {
-
-            IPs = lns.GetAllHostIpAddressesWithGateway();
-            GetGateways();
-            GetLocalIPs();
-        });
+        IPs = lns.GetAllHostIpAddressesWithGateway();
+        GetGateways();
+        // await Task.Run(() =>
+        // {
+        //     IPs = lns.GetAllHostIpAddressesWithGateway();
+        //     GetGateways();
+        //     // GetLocalIPs();
+        // });
+        await PingLocalIPs();
     }
 
     private void GetGateways()
@@ -79,7 +121,56 @@
         }
     }
 
-    void PingCompleted(object sender, PingCompletedEventArgs e)
+    private async Task PingLocalIPs()
+    {
+        foreach (var ip in IPs.Skip(1))
+        {
+            IPAddress? mask = lns.GetSubnetMaskByIp(ip);
+
+            if (mask is not null)
+            {
+                IPAddress network = lns.GetNetworkAddress(ip, mask);
+
+                byte[] hosts = mask.GetAddressBytes().Select(b => (byte)(byte.MaxValue - b)).ToArray();
+
+                List<Task> pings = new List<Task>();
+
+                byte[] init = new byte[4];
+                while (!hosts.SequenceEqual(init))
+                {
+                    for (int i = 3; i >= 0; i--)
+                    {
+                        if (init[i]++ == 255) continue;
+                        break;
+                    }
+
+                    var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
+
+                    pings.Add(PingHost(host));
+                    // PingHost(host);
+                }
+
+                await Task.WhenAll();
+            }
+        }
+    }
+
+    private async Task PingHost(IPAddress host)
+    {
+        Ping pingSender = new Ping();
+        PingReply pr = await pingSender.SendPingAsync(host, 10_000);
+
+        if (pr.Status == IPStatus.Success &&
+            !IPs.Contains(pr.Address) &&
+            !Gateways.Contains(pr.Address) &&
+            !LocalIPs.Contains(pr.Address))
+        {
+            LocalIPs.Add(pr.Address);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void PingCompleted(object sender, PingCompletedEventArgs e)
     {
         if (e.Reply != null &&
             e.Reply.Status == IPStatus.Success &&
@@ -88,8 +179,26 @@
             !LocalIPs.Contains((IPAddress)e.UserState!))
         {
             LocalIPs.Add((IPAddress)e.UserState!);
-            // StateHasChanged();
-            InvokeAsync (StateHasChanged);
+            InvokeAsync(StateHasChanged);
         }
+    }
+
+    private void FileChosen(InputFileChangeEventArgs e)
+    {
+        FileName = e.File.Name;
+    }
+
+    private async Task PickFile()
+    {
+        var file = await FilePicker.PickAsync();
+        FileName = file?.FullPath;
+        // Environment.SpecialFolder.UserProfile;
+    }
+
+    private async Task PickFolder()
+    {
+        var folder = await FolderPicker.PickAsync(default);
+        FolderName = folder?.Folder?.Path;
+        // FileSaver.SaveAsync();
     }
 }

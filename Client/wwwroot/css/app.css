@@ -12,3 +12,17 @@
 #app, html, body {
     height: 100vh;
 }
+
+.header {
+    height: 50px;
+    min-height: 50px;
+    width: 100%;
+    padding-left: 10px;
+    padding-right: 10px;
+    background-color: #1d1d2f;
+    display: flex;
+    align-items: center;
+    flex-flow: row-reverse;
+    gap: 5px;
+    box-sizing: border-box;
+}

@@ -1,0 +1,24 @@
+﻿.main {
+    padding: 10px;
+    overflow: auto;
+}
+
+.devices {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    overflow-x: hidden;
+    margin-top: 10px;
+    gap: 5px;
+}
+
+    .devices .device {
+        color: #fff;
+        background-color: #393a5f;
+        padding: 15px;
+        border-radius: 5px;
+    }
+
+        .devices .device:hover {
+            background-color: #333456;
+        }
