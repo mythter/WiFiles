@@ -1,0 +1,24 @@
+﻿<div class="button @(Count > 0 ? "badge-on" : "") @Class" 
+     data-content="@Count"
+     @onclick="@OnClickHandler">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public int Count { get; set; }
+
+    [Parameter] 
+    public string? Class { get; set; }
+
+    [Parameter]
+    public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    private async Task OnClickHandler(MouseEventArgs args)
+    {
+        await OnClick.InvokeAsync(args);
+    }
+}
