@@ -1,0 +1,38 @@
+﻿@page "/sendfiles"
+@inject NavigationService NavigationService
+
+<header class="header">
+    <BadgeButton Class="right" OnClick="@PickFile">
+        <i class="ph ph-plus"></i>
+    </BadgeButton>
+    <BadgeButton Class="transparent left" OnClick="@(() => NavigationService.NavigateBack())">
+        <i class="ph ph-arrow-left"></i>
+    </BadgeButton>
+</header>
+
+<div class="files">
+    @foreach (string name in SendFiles)
+    {
+        <div>
+            @name
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter(Name = "SendFiles")]
+    public List<string> SendFiles { get; set; }
+
+    private async Task PickFile()
+    {
+        // var file = await FilePicker.PickAsync();
+        var files = await FilePicker.PickMultipleAsync();
+        if (files is not null)
+        {
+            foreach (var file in files)
+            {
+                SendFiles.Add(file.FullPath);
+            }
+        }
+    }
+}
