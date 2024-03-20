@@ -4,24 +4,16 @@ using Android.Content.PM;
 using Android.Database;
 using Android.OS;
 using Android.Provider;
-using Android.Runtime;
-using Android.Webkit;
-using Android.Widget;
 using AndroidX.Activity.Result;
 using AndroidX.Activity.Result.Contract;
-using AndroidX.DocumentFile.Provider;
-using Client.Services;
-using Java.Lang;
-using Java.Nio.FileNio;
 
 namespace Client
 {
-
     [Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
     public class MainActivity : MauiAppCompatActivity
     {
-        public static Func<Task<string?>> PickFolderAsync { get; set; }
-        public static Func<Task<List<string>>> PickFilesAsync { get; set; }
+        public static Func<Task<string?>> PickFolderAsync { get; set; } = null!;
+        public static Func<Task<List<string>>> PickFilesAsync { get; set; } = null!;
 
         protected override void OnCreate(Bundle? savedInstanceState)
         {
@@ -102,8 +94,6 @@ namespace Client
                         paths.Add(path);
                     }
 
-                    //var docUriTree = DocumentsContract.BuildDocumentUriUsingTree(uri, DocumentsContract.GetTreeDocumentId(uri));
-
                     taskCompletionSource?.SetResult(paths);
                 }
                 else
@@ -117,141 +107,6 @@ namespace Client
                 activityResultLauncher.Launch(intent);
                 return taskCompletionSource.Task;
             };
-        }
-
-        protected void OnActivity(int requestCode, Result resultCode, Android.Content.Intent intent)
-        {
-
-
-            int i = 8;
-            string path = null;
-
-            if (intent?.Data != null)
-            {
-                var uri = intent.Data;
-
-                var docUriTree = DocumentsContract.BuildDocumentUriUsingTree(uri, DocumentsContract.GetTreeDocumentId(uri));
-
-                var context = Android.App.Application.Context;
-                //context.ContentResolver.TakePersistableUriPermission(docUriTree, ActivityFlags.GrantReadUriPermission | ActivityFlags.GrantWriteUriPermission);
-                path = GetRealPath(context, docUriTree);
-
-                //if (uri.Scheme == "file")
-                //{
-                //    path = uri.Path;
-                //}
-                //else if (uri.Scheme == "content")
-                //{
-                //    path = GetContentAbsolutePath(uri);
-                //}
-
-                if (IsTreeUri(uri))
-                {
-                    path = GetDocumentFilePath(uri);
-                }
-                else
-                {
-                    path = GetContentAbsolutePath(uri);
-                }
-
-                var folderPath = GetFolderPathFromUri(uri);
-            }
-        }
-
-        private string GetFolderPathFromUri(Android.Net.Uri uri)
-        {
-            var documentFile = DocumentFile.FromTreeUri(Platform.CurrentActivity, uri);
-            return documentFile?.Uri?.Path;
-        }
-
-        private static string GetContentAbsolutePath(Android.Net.Uri uri)
-        {
-            var context = Android.App.Application.Context;
-            string[] projection = { MediaStore.MediaColumns.Data };
-            ICursor cursor = context.ContentResolver.Query(uri, projection, null, null, null);
-            if (cursor != null && cursor.MoveToFirst())
-            {
-                int columnIndex = cursor.GetColumnIndexOrThrow(MediaStore.MediaColumns.Data);
-                string path = cursor.GetString(columnIndex);
-                cursor.Close();
-                return path;
-            }
-            return null;
-        }
-
-        private static string GetDocumentFilePath(Android.Net.Uri treeUri)
-        {
-            var context = Android.App.Application.Context;
-            //string[] split = treeUri.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            //if (split.Length >= 2)
-            //{
-            //    string rootPath = split[1]; // Находим корневую папку, например, "primary:CastBox"
-            //    string documentPath = treeUri.LastPathSegment; // Последний сегмент в URI содержит имя документа
-
-            //    string[] rootSplit = rootPath.Split(':');
-            //    if (rootSplit.Length == 2)
-            //    {
-            //        string directoryType = rootSplit[0]; // Получаем тип директории, например, "primary"
-            //        string path = Android.OS.Environment.GetExternalStoragePublicDirectory(directoryType).AbsolutePath;
-            //        return Path.Combine(path, documentPath);
-            //    }
-            //}
-            //return null;
-
-            string[] split = treeUri.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (split.Length >= 2)
-            {
-                string rootPath = split[1]; // Находим корневую папку, например, "primary:CastBox"
-                string documentPath = treeUri.LastPathSegment; // Последний сегмент в URI содержит имя документа
-
-                string[] rootSplit = rootPath.Split(':', StringSplitOptions.RemoveEmptyEntries);
-                if (rootSplit.Length == 2)
-                {
-                    string directoryType = rootSplit[0]; // Получаем тип директории, например, "primary"
-                    string rootDocumentId = rootSplit[1]; // Получаем идентификатор корневого документа, например, "CastBox"
-
-                    // Получаем документ по его идентификатору
-                    var docUri = DocumentsContract.BuildDocumentUri("com.android.externalstorage.documents", "document");
-                    var documentUri = DocumentsContract.BuildChildDocumentsUriUsingTree(treeUri, rootDocumentId);
-                    string[] projection = { DocumentsContract.Document.ColumnDisplayName };
-                    ICursor cursor = context.ContentResolver.Query(documentUri, projection, null, null, null);
-                    if (cursor != null)
-                    {
-                        while (cursor.MoveToNext())
-                        {
-                            string displayName = cursor.GetString(0);
-                            if (displayName == documentPath)
-                            {
-                                string documentId = cursor.GetString(0);
-                                var uri = DocumentsContract.BuildDocumentUriUsingTree(treeUri, documentId);
-                                return GetPathFromContentUri(context, uri);
-                            }
-                        }
-                        cursor.Close();
-                    }
-                }
-            }
-            return null;
-        }
-
-        private static string GetPathFromContentUri(Context context, Android.Net.Uri contentUri)
-        {
-            string path = null;
-            string[] projection = { MediaStore.MediaColumns.Data };
-            ContentResolver contentResolver = context.ContentResolver;
-            ICursor cursor = contentResolver.Query(contentUri, projection, null, null, null);
-            if (cursor != null && cursor.MoveToFirst())
-            {
-                int columnIndex = cursor.GetColumnIndexOrThrow(MediaStore.MediaColumns.Data);
-                path = cursor.GetString(columnIndex);
-                cursor.Close();
-            }
-            return path;
-        }
-
-        private static bool IsTreeUri(Android.Net.Uri uri)
-        {
-            return DocumentsContract.IsTreeUri(uri);
         }
 
         private static string GetRealPath(Context context, Android.Net.Uri fileUri)
@@ -437,4 +292,11 @@ namespace Client
         }
     }
 
+    public class ActivityResultCallback : Java.Lang.Object, IActivityResultCallback
+    {
+        readonly Action<ActivityResult> _callback;
+        public ActivityResultCallback(Action<ActivityResult> callback) => _callback = callback;
+        public ActivityResultCallback(TaskCompletionSource<ActivityResult> tcs) => _callback = tcs.SetResult;
+        public void OnActivityResult(Java.Lang.Object p0) => _callback((ActivityResult)p0);
+    }
 }
