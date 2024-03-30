@@ -3,6 +3,7 @@
 
 <CascadingValue Value="@SendFiles" Name="SendFiles">
     <CascadingValue Value="@SaveFolder" Name="SaveFolder">
+        <CascadingValue Value="@SetFolder" Name="SetFolder">
         <div class="page">
             <main class="main">
                 @Body
@@ -18,14 +19,23 @@
         </div>
     </CascadingValue>
 </CascadingValue>
+</CascadingValue>
 
 @code {
     public List<string> SendFiles { get; set; } = new();
 
     public string? SaveFolder { get; set; }
 
+    public EventCallback<string> SetFolder { get; set; } 
+
     protected override async Task OnInitializedAsync()
     {
+        SetFolder = EventCallback.Factory.Create<string>(this, OnSetFolder);
         NavigationService.NavigateTo("local");
+    }
+
+    private void OnSetFolder(string path)
+    {
+        SaveFolder = path;
     }
 }
