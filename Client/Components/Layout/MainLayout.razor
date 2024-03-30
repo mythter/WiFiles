@@ -1,5 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationService NavigationService
+@inject IStorageService StorageService
 
 <CascadingValue Value="@SendFiles" Name="SendFiles">
     <CascadingValue Value="@SaveFolder" Name="SaveFolder">
@@ -17,8 +18,8 @@
                 </div>
             </div>
         </div>
+        </CascadingValue>
     </CascadingValue>
-</CascadingValue>
 </CascadingValue>
 
 @code {
@@ -30,6 +31,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        SaveFolder = StorageService.GetDefaultFolder();
+
         SetFolder = EventCallback.Factory.Create<string>(this, OnSetFolder);
         NavigationService.NavigateTo("local");
     }
