@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 
-namespace BLL.Services
+namespace Client.Services
 {
     public class NavigationService : IDisposable
     {

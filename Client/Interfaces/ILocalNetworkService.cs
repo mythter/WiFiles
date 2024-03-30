@@ -1,6 +1,6 @@
 ﻿using System.Net;
 
-namespace BLL.Interfaces
+namespace Client.Interfaces
 {
     public interface ILocalNetworkService
     {

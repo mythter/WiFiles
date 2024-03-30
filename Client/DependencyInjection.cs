@@ -1,8 +1,7 @@
-﻿using BLL.Interfaces;
-using BLL.Services;
+﻿using Client.Interfaces;
 using Client.Services;
 
-namespace BLL
+namespace Client
 {
     public static class DependencyInjection
     {
@@ -12,8 +11,10 @@ namespace BLL
 
 #if ANDROID
             services.AddScoped<ILocalNetworkService, AndroidLocalNetworkService>();
+            services.AddScoped<IStorageService, AndroidStorageService>();
 #elif WINDOWS
             services.AddScoped<ILocalNetworkService, WindowsLocalNetworkService>();
+            services.AddScoped<IStorageService, WindowsStorageService>();
 #endif
         }
     }
