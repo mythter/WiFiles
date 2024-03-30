@@ -1,12 +1,33 @@
 ﻿@page "/receivefiles"
 @inject NavigationService NavigationService
+@inject IStorageService storageService
 
 <header class="header">
+    <BadgeButton Class="right" OnClick="@PickFolder">
+        <i class="ph ph-folder-notch"></i>
+    </BadgeButton>
     <BadgeButton Class="transparent left" OnClick="@(() => NavigationService.NavigateBack())">
         <i class="ph ph-arrow-left"></i>
     </BadgeButton>
 </header>
 
-@code {
+<div>
+    @Folder
+</div>
 
+@code {
+    [CascadingParameter(Name = "SaveFolder")]
+    public string? Folder { get; set; }
+
+    [CascadingParameter(Name = "SetFolder")]
+    public EventCallback<string> SetFolder { get; set; }
+
+    private async Task PickFolder()
+    {
+        string? path = await storageService.PickFolderAsync();
+        if (!string.IsNullOrEmpty(path))
+        {
+            await SetFolder.InvokeAsync(path);
+        }
+    }
 }
