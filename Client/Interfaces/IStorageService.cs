@@ -4,5 +4,6 @@
     {
         public Task<List<string>> PickFilesAsync();
         public Task<string?> PickFolderAsync();
+        public string? GetDefaultFolder();
     }
 }
