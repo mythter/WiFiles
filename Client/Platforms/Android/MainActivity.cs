@@ -3,9 +3,13 @@ using Android.Content;
 using Android.Content.PM;
 using Android.Database;
 using Android.OS;
+using Android.OS.Storage;
 using Android.Provider;
 using AndroidX.Activity.Result;
 using AndroidX.Activity.Result.Contract;
+using static Android.Provider.MediaStore;
+using Environment = Android.OS.Environment;
+using Uri = Android.Net.Uri;
 
 namespace Client
 {
@@ -33,31 +37,33 @@ namespace Client
             intent.AddFlags(ActivityFlags.GrantPersistableUriPermission);
             intent.AddFlags(ActivityFlags.GrantPrefixUriPermission);
 
-            TaskCompletionSource<string?> taskCompletionSource = new TaskCompletionSource<string?>();
+            TaskCompletionSource<string?>? taskCompletionSource = null;
 
             ActivityResultLauncher activityResultLauncher = activity.RegisterForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             new ActivityResultCallback(result =>
             {
+                string? path = null;
                 if (result.ResultCode == (int)(Result.Ok))
                 {
-                    Intent intent = result.Data;
-                    var uri = intent.Data;
+                    Intent? intent = result.Data;
+                    var uri = intent?.Data;
 
                     var docUriTree = DocumentsContract.BuildDocumentUriUsingTree(uri, DocumentsContract.GetTreeDocumentId(uri));
 
                     var context = Android.App.Application.Context;
-                    string path = GetRealPath(context, docUriTree);
-                    taskCompletionSource?.SetResult(path);
+
+                    if (docUriTree is not null)
+                    {
+                        path = GetRealPath(context, docUriTree);
+                    }
                 }
-                else
-                {
-                    taskCompletionSource?.SetResult(null);
-                }
+                taskCompletionSource?.SetResult(path);
             }));
 
             return () =>
             {
+                taskCompletionSource = new TaskCompletionSource<string?>();
                 activityResultLauncher.Launch(intent);
                 return taskCompletionSource.Task;
             };
@@ -71,10 +77,10 @@ namespace Client
             intent.PutExtra(Intent.ExtraAllowMultiple, true); // Разрешаем выбор нескольких файлов
             intent.AddCategory(Intent.CategoryOpenable);
 
-            intent.AddFlags(ActivityFlags.GrantPersistableUriPermission);
-            intent.AddFlags(ActivityFlags.GrantPrefixUriPermission);
+            //intent.AddFlags(ActivityFlags.GrantPersistableUriPermission);
+            //intent.AddFlags(ActivityFlags.GrantPrefixUriPermission);
 
-            TaskCompletionSource<List<string>> taskCompletionSource = new TaskCompletionSource<List<string>>();
+            TaskCompletionSource<List<string>>? taskCompletionSource = null;
 
             ActivityResultLauncher activityResultLauncher = activity.RegisterForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -83,33 +89,47 @@ namespace Client
                 List<string> paths = new List<string>();
                 if (result.ResultCode == (int)(Result.Ok))
                 {
-                    Intent intent = result.Data;
-                    var uris = intent.ClipData;
-
+                    Intent? intent = result.Data;
+                    var uris = intent?.ClipData;
                     var context = Android.App.Application.Context;
-                    for (int i = 0; i < uris.ItemCount; i++)
-                    {
-                        var uri = uris.GetItemAt(i).Uri;
-                        var path = GetRealPath(context, uri);
-                        paths.Add(path);
-                    }
 
-                    taskCompletionSource?.SetResult(paths);
+                    if (uris is null)
+                    {
+                        var uri = intent?.Data;
+                        if (uri is not null)
+                        {
+                            var path = GetRealPath(context, uri);
+                            if (path is not null)
+                                paths.Add(path);
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < uris!.ItemCount; i++)
+                        {
+                            var uri = uris!.GetItemAt(i)?.Uri;
+                            if (uri is not null)
+                            {
+                                var path = GetRealPath(context, uri);
+                                if (path is not null)
+                                    paths.Add(path);
+                            }
+                        }
+                    }
                 }
-                else
-                {
-                    taskCompletionSource?.SetResult(paths);
-                }
+
+                taskCompletionSource?.SetResult(paths);
             }));
 
             return () =>
             {
+                taskCompletionSource = new TaskCompletionSource<List<string>>();
                 activityResultLauncher.Launch(intent);
                 return taskCompletionSource.Task;
             };
         }
 
-        private static string GetRealPath(Context context, Android.Net.Uri fileUri)
+        private static string GetRealPath(Context context, Uri fileUri)
         {
             string realPath;
 
@@ -129,7 +149,7 @@ namespace Client
             return realPath;
         }
 
-        private static string GetRealPathFromURI_API11to18(Context context, Android.Net.Uri contentUri)
+        private static string GetRealPathFromURI_API11to18(Context context, Uri contentUri)
         {
             string[] proj = { MediaStore.Images.ImageColumns.Data };
             string result = null;
@@ -147,7 +167,7 @@ namespace Client
             return result;
         }
 
-        private static string GetRealPathFromURI_BelowAPI11(Context context, Android.Net.Uri contentUri)
+        private static string GetRealPathFromURI_BelowAPI11(Context context, Uri contentUri)
         {
             string[] proj = { MediaStore.Images.ImageColumns.Data };
             string result = "";
@@ -166,7 +186,7 @@ namespace Client
             return result;
         }
 
-        public static string GetRealPathFromURI_API19(Context context, Android.Net.Uri uri)
+        public static string? GetRealPathFromURI_API19(Context context, Uri uri)
         {
             bool isKitKat = Build.VERSION.SdkInt >= BuildVersionCodes.Kitkat;
 
@@ -177,12 +197,28 @@ namespace Client
                 if (IsExternalStorageDocument(uri))
                 {
                     string docId = DocumentsContract.GetDocumentId(uri);
-                    string[] split = docId.Split(':');
+                    string[] split = docId.Split(':', StringSplitOptions.RemoveEmptyEntries);
                     string type = split[0];
 
-                    if ("primary".Equals(type, System.StringComparison.OrdinalIgnoreCase))
+                    if ("primary".Equals(type, StringComparison.OrdinalIgnoreCase))
                     {
-                        return $"{Android.OS.Environment.ExternalStorageDirectory}/{split[1]}";
+                        return $"{Environment.ExternalStorageDirectory}{(split.Length > 1 ? $"/{split[1]}" : "")}";
+                    }
+                    else if ("home".Equals(type, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Documents folder's type is home
+                        return Environment.ExternalStorageDirectory + "/Documents" + (split.Length > 1 ? $"/{split[1]}" : "");
+                    }
+                    else
+                    {
+                        // Обрабатываем другие виды томов, например, вторичные тома (SD-карты) или облачные хранилища
+                        StorageManager storageManager = (StorageManager)context.GetSystemService(StorageService);
+                        IList<StorageVolume> storageVolumes = storageManager.StorageVolumes;
+                        var paths = (string[]?)storageManager.Class
+                            .GetMethod("getVolumePaths")
+                            .Invoke(storageManager);
+                        var volume = storageVolumes.FirstOrDefault(v => v.IsRemovable && v.State == Environment.MediaMounted);
+                        return $"{paths?.SingleOrDefault(p => p.EndsWith(volume.Uuid))}/{split[1]}";
                     }
 
                     // TODO: Обработка других типов томов
@@ -190,24 +226,37 @@ namespace Client
                 // DownloadsProvider
                 else if (IsDownloadsDocument(uri))
                 {
-                    string id = DocumentsContract.GetDocumentId(uri);
+                    string? fileName = GetFilePath(context, uri);
+                    if (fileName is not null)
+                    {
+                        return Environment.ExternalStorageDirectory + "/Download/" + fileName;
+                    }
+
+                    string? id = DocumentsContract.GetDocumentId(uri);
+                    string? path = null;
 
                     if (string.IsNullOrEmpty(id))
                         return null;
 
-                    if ("downloads".Equals(id, System.StringComparison.OrdinalIgnoreCase))
+                    if ("downloads".Equals(id, StringComparison.OrdinalIgnoreCase))
                     {
-                        return $"{Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDownloads)}";
+                        return $"{Environment.GetExternalStoragePublicDirectory(Environment.DirectoryDownloads)}";
                     }
                     else if (id.StartsWith("raw:"))
                     {
                         return id.Substring("raw:".Length);
                     }
-
+                    else if (id.StartsWith("msf:"))
+                    {
+                        // like msf:7755
+                        id = id.Substring("msf:".Length);
+                    }
                     var contentUri = ContentUris.WithAppendedId(
-                        Android.Net.Uri.Parse("content://downloads/public_downloads"),
+                        Uri.Parse("content://downloads/public_downloads"),
                         long.Parse(id));
-                    return GetDataColumn(context, contentUri, null, null);
+                    path = GetDataColumn(context, contentUri, null, null);
+
+                    return path;
                 }
                 // MediaProvider
                 else if (IsMediaDocument(uri))
@@ -216,18 +265,22 @@ namespace Client
                     string[] split = docId.Split(':');
                     string type = split[0];
 
-                    Android.Net.Uri contentUri = null;
-                    if ("image".Equals(type, System.StringComparison.OrdinalIgnoreCase))
+                    Uri contentUri = null;
+                    if ("image".Equals(type, StringComparison.OrdinalIgnoreCase))
                     {
                         contentUri = MediaStore.Images.Media.ExternalContentUri;
                     }
-                    else if ("video".Equals(type, System.StringComparison.OrdinalIgnoreCase))
+                    else if ("video".Equals(type, StringComparison.OrdinalIgnoreCase))
                     {
                         contentUri = MediaStore.Video.Media.ExternalContentUri;
                     }
-                    else if ("audio".Equals(type, System.StringComparison.OrdinalIgnoreCase))
+                    else if ("audio".Equals(type, StringComparison.OrdinalIgnoreCase))
                     {
                         contentUri = MediaStore.Audio.Media.ExternalContentUri;
+                    }
+                    else
+                    {
+                        contentUri = MediaStore.Files.GetContentUri("external");
                     }
 
                     string selection = "_id=?";
@@ -237,7 +290,7 @@ namespace Client
                 }
             }
             // MediaStore (и общее)
-            else if ("content".Equals(uri.Scheme, System.StringComparison.OrdinalIgnoreCase))
+            else if ("content".Equals(uri.Scheme, StringComparison.OrdinalIgnoreCase))
             {
                 // Возвращаем удаленный адрес
                 if (IsGooglePhotosUri(uri))
@@ -246,7 +299,7 @@ namespace Client
                 return GetDataColumn(context, uri, null, null);
             }
             // File
-            else if ("file".Equals(uri.Scheme, System.StringComparison.OrdinalIgnoreCase))
+            else if ("file".Equals(uri.Scheme, StringComparison.OrdinalIgnoreCase))
             {
                 return uri.Path;
             }
@@ -254,7 +307,7 @@ namespace Client
             return null;
         }
 
-        private static string GetDataColumn(Context context, Android.Net.Uri uri, string selection, string[] selectionArgs)
+        private static string GetDataColumn(Context context, Uri uri, string selection, string[] selectionArgs)
         {
             string column = "_data";
             string[] projection = { column };
@@ -271,22 +324,43 @@ namespace Client
             return null;
         }
 
-        private static bool IsExternalStorageDocument(Android.Net.Uri uri)
+        public static string? GetFilePath(Context context, Uri uri)
+        {
+            ICursor? cursor = null;
+            string[] projection = { IMediaColumns.DisplayName };
+
+            try
+            {
+                cursor = context?.ContentResolver?.Query(uri, projection, null, null, null);
+                if (cursor != null && cursor.MoveToFirst())
+                {
+                    int index = cursor.GetColumnIndexOrThrow(IMediaColumns.DisplayName);
+                    return cursor.GetString(index);
+                }
+            }
+            finally
+            {
+                cursor?.Close();
+            }
+            return null;
+        }
+
+        private static bool IsExternalStorageDocument(Uri uri)
         {
             return "com.android.externalstorage.documents".Equals(uri.Authority);
         }
 
-        private static bool IsDownloadsDocument(Android.Net.Uri uri)
+        private static bool IsDownloadsDocument(Uri uri)
         {
             return "com.android.providers.downloads.documents".Equals(uri.Authority);
         }
 
-        private static bool IsMediaDocument(Android.Net.Uri uri)
+        private static bool IsMediaDocument(Uri uri)
         {
             return "com.android.providers.media.documents".Equals(uri.Authority);
         }
 
-        private static bool IsGooglePhotosUri(Android.Net.Uri uri)
+        private static bool IsGooglePhotosUri(Uri uri)
         {
             return "com.google.android.apps.photos.content".Equals(uri.Authority);
         }
