@@ -1,14 +1,8 @@
 ﻿#if ANDROID
 using Android.Net;
-using BLL.Interfaces;
+using Client.Interfaces;
 using Java.Net;
-using Microsoft.Maui.Controls.PlatformConfiguration;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Client.Services
 {
@@ -108,18 +102,13 @@ namespace Client.Services
             return result;
         }
 
-        public IPAddress? GetGatewayByHostIp(IPAddress ip)
-        {
-            return null;
-        }
-
         public IPAddress? GetGatewayByIp(IPAddress ip)
         {
             var context = Android.App.Application.Context;
             IPAddress? gateway = null;
 
-            Android.Net.ConnectivityManager? connectivityManager =
-                    context.GetSystemService(Android.Content.Context.ConnectivityService) as Android.Net.ConnectivityManager;
+            ConnectivityManager? connectivityManager =
+                    context.GetSystemService(Android.Content.Context.ConnectivityService) as ConnectivityManager;
 
             if (connectivityManager == null)
                 return null;
@@ -140,7 +129,7 @@ namespace Client.Services
                     if (route.IsDefaultRoute &&
                         !(route.Gateway is Inet6Address) &&
                         route.Gateway != null &&
-                        AndroidIsInSameSubnet(ip, properties))
+                        IsInSameSubnet(ip, properties))
                     {
                         gateway = new IPAddress(route.Gateway.GetAddress()!);
                     }
@@ -148,11 +137,6 @@ namespace Client.Services
             }
 
             return gateway;
-        }
-
-        public IPAddress? GetSubnetMaskByHostIp(IPAddress ip)
-        {
-            return null;
         }
 
         public IPAddress? GetSubnetMaskByIp(IPAddress ip)
@@ -180,7 +164,7 @@ namespace Client.Services
                 foreach (LinkAddress address in properties.LinkAddresses)
                 {
                     if (address.Address != null &&
-                        AndroidIsInSameSubnet(ip, properties))
+                        IsInSameSubnet(ip, properties))
                     {
                         mask = new IPAddress(PrefixLengthToByteArray(address.PrefixLength));
                     }
@@ -204,7 +188,7 @@ namespace Client.Services
             return new IPAddress(networkBytes);
         }
 
-        private bool AndroidIsInSameSubnet(byte[]? addressBytes, int subnetMaskLength, InetAddress interfaceAddress)
+        private bool IsInSameSubnet(byte[]? addressBytes, int subnetMaskLength, InetAddress interfaceAddress)
         {
             //byte[]? addressBytes = address.GetAddress();
             byte[] subnetMaskBytes;
@@ -225,7 +209,7 @@ namespace Client.Services
             return true;
         }
 
-        private bool AndroidIsInSameSubnet(InetAddress address, Java.Net.NetworkInterface nic)
+        private bool IsInSameSubnet(InetAddress address, Java.Net.NetworkInterface nic)
         {
             var interfaceAddresses = nic.InetAddresses;
             if (interfaceAddresses == null)
@@ -244,7 +228,7 @@ namespace Client.Services
                         address.GetAddress() != null &&
                         address.GetAddress()!.Length == 4 &&
                         interfaceAddress.GetAddress()!.SequenceEqual(address.GetAddress()!) &&
-                        AndroidIsInSameSubnet(address.GetAddress(), iface.NetworkPrefixLength, interfaceAddress))
+                        IsInSameSubnet(address.GetAddress(), iface.NetworkPrefixLength, interfaceAddress))
                     {
                         return true;
                     }
@@ -254,12 +238,12 @@ namespace Client.Services
             return false;
         }
 
-        private bool AndroidIsInSameSubnet(InetAddress address, LinkProperties properties)
+        private bool IsInSameSubnet(InetAddress address, LinkProperties properties)
         {
             foreach (LinkAddress ip in properties.LinkAddresses)
             {
                 if (ip.Address != null &&
-                    AndroidIsInSameSubnet(address.GetAddress(), ip.PrefixLength, ip.Address))
+                    IsInSameSubnet(address.GetAddress(), ip.PrefixLength, ip.Address))
                 {
                     return true;
                 }
@@ -268,12 +252,12 @@ namespace Client.Services
             return false;
         }
 
-        private bool AndroidIsInSameSubnet(IPAddress address, LinkProperties properties)
+        private bool IsInSameSubnet(IPAddress address, LinkProperties properties)
         {
             foreach (LinkAddress ip in properties.LinkAddresses)
             {
                 if (ip.Address != null &&
-                    AndroidIsInSameSubnet(address.GetAddressBytes(), ip.PrefixLength, ip.Address))
+                    IsInSameSubnet(address.GetAddressBytes(), ip.PrefixLength, ip.Address))
                 {
                     return true;
                 }

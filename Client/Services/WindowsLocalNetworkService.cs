@@ -1,4 +1,4 @@
-﻿using BLL.Interfaces;
+﻿using Client.Interfaces;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -58,7 +58,7 @@ namespace Client.Services
                 foreach (var gatewayAddress in ipProps.GatewayAddresses)
                 {
                     if (gatewayAddress.Address.AddressFamily == ip.AddressFamily &&
-                        WindowsIsInSameSubnet(ip, nic))
+                        IsInSameSubnet(ip, nic))
                     {
                         gateway = gatewayAddress.Address;
                         break;
@@ -101,7 +101,7 @@ namespace Client.Services
                 foreach (UnicastIPAddressInformation unicastAddress in ipProps.UnicastAddresses)
                 {
                     if (unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork &&
-                        WindowsIsInSameSubnet(ip, unicastAddress.IPv4Mask, unicastAddress.Address))
+                        IsInSameSubnet(ip, unicastAddress.IPv4Mask, unicastAddress.Address))
                     {
                         mask = unicastAddress.IPv4Mask;
                         break;
@@ -129,12 +129,12 @@ namespace Client.Services
             return new IPAddress(networkBytes);
         }
 
-        private bool WindowsIsInSameSubnet(IPAddress address, NetworkInterface nic)
+        private bool IsInSameSubnet(IPAddress address, NetworkInterface nic)
         {
             foreach (UnicastIPAddressInformation unicastAddress in nic.GetIPProperties().UnicastAddresses)
             {
                 if (unicastAddress.Address.AddressFamily == address.AddressFamily &&
-                    WindowsIsInSameSubnet(address, unicastAddress.IPv4Mask, unicastAddress.Address))
+                    IsInSameSubnet(address, unicastAddress.IPv4Mask, unicastAddress.Address))
                 {
                     return true;
                 }
@@ -142,7 +142,7 @@ namespace Client.Services
             return false;
         }
 
-        private bool WindowsIsInSameSubnet(IPAddress address, IPAddress subnetMask, IPAddress localAddress)
+        private bool IsInSameSubnet(IPAddress address, IPAddress subnetMask, IPAddress localAddress)
         {
             byte[] addressBytes = address.GetAddressBytes();
             byte[] subnetMaskBytes = subnetMask.GetAddressBytes();
