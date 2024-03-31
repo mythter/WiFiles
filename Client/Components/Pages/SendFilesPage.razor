@@ -14,9 +14,7 @@
 <div class="files">
     @foreach (string name in SendFiles)
     {
-        <div>
-            @name
-        </div>
+        <FileComponent FilePath="@name"></FileComponent>
     }
 </div>
 

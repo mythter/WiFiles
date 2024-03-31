@@ -1,0 +1,62 @@
+﻿.file {
+    display: flex;
+    align-items: center;
+    background-color: #43496a;
+    border-radius: 5px;
+    color: #fff;
+    padding: 8px;
+    gap: 10px;
+}
+
+    .file .icon {
+        font-size: 35px;
+        display: flex;
+        align-items: center;
+    }
+
+    .file .info {
+        overflow: hidden;
+        position: relative;
+        padding-left: 7px;
+        padding-right: 7px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        width: 100%;
+    }
+
+        .file .info::after {
+            content: "";
+            position: absolute;
+            pointer-events: none;
+            width: 100%;
+            background-image: linear-gradient(90deg, #43496a 0px, transparent 8px, transparent calc(100% - 8px), #43496a 100%);
+            height: 100%;
+            left: 0;
+            top: 0;
+        }
+
+    .file .file-name {
+        width: max-content;
+    }
+
+    .file .file-path {
+        font-size: 14px;
+        color: #bbb;
+        width: max-content;
+    }
+
+.running-text {
+    animation: moving infinite linear alternate;
+    animation-delay: 3s;
+}
+
+@keyframes moving {
+    from {
+        transform: translateX(0%);
+    }
+
+    to {
+        transform: translateX(calc(-100% + var(--info-width)));
+    }
+}

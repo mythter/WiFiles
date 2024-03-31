@@ -1,1 +1,8 @@
-﻿
+﻿.files {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 5px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
