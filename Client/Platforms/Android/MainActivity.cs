@@ -218,7 +218,7 @@ namespace Client
                             .GetMethod("getVolumePaths")
                             .Invoke(storageManager);
                         var volume = storageVolumes.FirstOrDefault(v => v.IsRemovable && v.State == Environment.MediaMounted);
-                        return $"{paths?.SingleOrDefault(p => p.EndsWith(volume.Uuid))}/{split[1]}";
+                        return $"{paths?.SingleOrDefault(p => p.EndsWith(volume.Uuid))}{(split.Length > 1 ? $"/{split[1]}" : "")}";
                     }
 
                     // TODO: Обработка других типов томов
@@ -227,10 +227,6 @@ namespace Client
                 else if (IsDownloadsDocument(uri))
                 {
                     string? fileName = GetFilePath(context, uri);
-                    if (fileName is not null)
-                    {
-                        return Environment.ExternalStorageDirectory + "/Download/" + fileName;
-                    }
 
                     string? id = DocumentsContract.GetDocumentId(uri);
                     string? path = null;
@@ -251,10 +247,22 @@ namespace Client
                         // like msf:7755
                         id = id.Substring("msf:".Length);
                     }
-                    var contentUri = ContentUris.WithAppendedId(
-                        Uri.Parse("content://downloads/public_downloads"),
-                        long.Parse(id));
-                    path = GetDataColumn(context, contentUri, null, null);
+                    try
+                    {
+                        var contentUri = ContentUris.WithAppendedId(
+                            Uri.Parse("content://downloads/public_downloads")!,
+                            long.Parse(id));
+
+                        path = GetDataColumn(context, contentUri, null, null);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (fileName is not null)
+                        {
+                            string? downloadsPath = Environment.GetExternalStoragePublicDirectory(Environment.DirectoryDownloads)?.AbsolutePath;
+                            path = downloadsPath is null ? null : Path.Combine(downloadsPath, fileName);
+                        }
+                    }
 
                     return path;
                 }
@@ -268,19 +276,19 @@ namespace Client
                     Uri contentUri = null;
                     if ("image".Equals(type, StringComparison.OrdinalIgnoreCase))
                     {
-                        contentUri = MediaStore.Images.Media.ExternalContentUri;
+                        contentUri = Images.Media.ExternalContentUri;
                     }
                     else if ("video".Equals(type, StringComparison.OrdinalIgnoreCase))
                     {
-                        contentUri = MediaStore.Video.Media.ExternalContentUri;
+                        contentUri = Video.Media.ExternalContentUri;
                     }
                     else if ("audio".Equals(type, StringComparison.OrdinalIgnoreCase))
                     {
-                        contentUri = MediaStore.Audio.Media.ExternalContentUri;
+                        contentUri = Audio.Media.ExternalContentUri;
                     }
                     else
                     {
-                        contentUri = MediaStore.Files.GetContentUri("external");
+                        contentUri = Files.GetContentUri("external");
                     }
 
                     string selection = "_id=?";
@@ -307,12 +315,12 @@ namespace Client
             return null;
         }
 
-        private static string GetDataColumn(Context context, Uri uri, string selection, string[] selectionArgs)
+        private static string? GetDataColumn(Context context, Uri uri, string? selection, string[]? selectionArgs)
         {
             string column = "_data";
             string[] projection = { column };
 
-            using (ICursor cursor = context.ContentResolver.Query(uri, projection, selection, selectionArgs, null))
+            using (ICursor? cursor = context?.ContentResolver?.Query(uri, projection, selection, selectionArgs, null))
             {
                 if (cursor != null && cursor.MoveToFirst())
                 {
