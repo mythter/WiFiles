@@ -1,0 +1,31 @@
+﻿@using System.Net
+@inject IJSRuntime js
+
+
+<div class="device" @ref="ElementDevice" tabindex="0">
+    <div class="device-info">
+        @Ip?.ToString()
+    </div>
+    <div class="send-btn hidden" @ref="ElementSendBtn">
+        <i class="ph ph-arrow-fat-lines-up"></i>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public IPAddress? Ip { get; set; }
+
+    ElementReference ElementDevice;
+    ElementReference ElementSendBtn;
+
+    IJSObjectReference jsModule = null!;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/DeviceComponent.razor.js");
+            await jsModule.InvokeVoidAsync("Device.Init", ElementDevice, ElementSendBtn);
+        }
+    }
+}
