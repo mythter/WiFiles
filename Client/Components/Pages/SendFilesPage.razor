@@ -27,7 +27,8 @@
         List<string> files = await storageService.PickFilesAsync();
         foreach (var file in files)
         {
-            if (!string.IsNullOrEmpty(file))
+            if (!string.IsNullOrEmpty(file) &&
+                !SendFiles.Contains(file))
             {
                 SendFiles.Add(file);
             }
