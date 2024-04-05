@@ -1,6 +1,7 @@
 ﻿@page "/receivefiles"
 @inject NavigationService NavigationService
 @inject IStorageService storageService
+@inject IJSRuntime js
 
 <header class="header">
     <BadgeButton Class="right" OnClick="@PickFolder">
@@ -12,7 +13,13 @@
 </header>
 
 <div>
-    @Folder
+    <div class="folder" @ref=ElementFolderContainer>
+        <div class="folder-area" @ref=ElementFolder @onclick="@PickFolder">
+            @Folder
+        </div>
+    </div>
+    <div class="files">
+    </div>
 </div>
 
 @code {
@@ -21,6 +28,29 @@
 
     [CascadingParameter(Name = "SetFolder")]
     public EventCallback<string> SetFolder { get; set; }
+
+    IJSObjectReference jsModule;
+
+    ElementReference ElementFolderContainer;
+    ElementReference ElementFolder;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/ReceiveFilesPage.razor.js");
+            await jsModule.InvokeVoidAsync("ReceiveFilesPage.Init", ElementFolderContainer, ElementFolder);
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await InvokeAsync(StateHasChanged);
+        if(jsModule is not null)
+        {
+            await jsModule.InvokeVoidAsync("ReceiveFilesPage.FolderChanged", ElementFolderContainer, ElementFolder);
+        }
+    }
 
     private async Task PickFolder()
     {

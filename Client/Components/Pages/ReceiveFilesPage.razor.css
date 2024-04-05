@@ -1,1 +1,46 @@
-﻿
+﻿.folder {
+    overflow: hidden;
+    padding: 7px;
+    position: relative;
+}
+
+    .folder::after {
+        content: "";
+        position: absolute;
+        pointer-events: none;
+        width: 100%;
+        background-image: linear-gradient(90deg, #2f2f48 0px, transparent 8px, transparent calc(100% - 8px), #2f2f48 100%);
+        height: 100%;
+        left: 0;
+        top: 0;
+    }
+
+    .folder .folder-area {
+        text-decoration: underline;
+        color: #fff;
+        width: max-content;
+    }
+
+        .folder .folder-area:hover {
+            color: #aaa7d1;
+            cursor: pointer;
+        }
+
+        .folder .folder-area:active {
+            color: #c2bfe1;
+        }
+
+.running-text {
+    animation: moving infinite linear alternate;
+    animation-delay: 3s;
+}
+
+@keyframes moving {
+    from {
+        transform: translateX(0%);
+    }
+
+    to {
+        transform: translateX(calc(-100% + var(--container-width)));
+    }
+}
