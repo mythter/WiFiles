@@ -6,7 +6,7 @@
     <div class="device-info">
         @Ip?.ToString()
     </div>
-    <div class="send-btn hidden" @ref="ElementSendBtn">
+    <div class="send-btn hidden" @ref="ElementSendBtn" @onclick="@(() => SendCallback.InvokeAsync(Ip))">
         <i class="ph ph-arrow-fat-lines-up"></i>
     </div>
 </div>
@@ -14,6 +14,9 @@
 @code {
     [Parameter]
     public IPAddress? Ip { get; set; }
+
+    [Parameter]
+    public EventCallback<IPAddress> SendCallback { get; set; }
 
     ElementReference ElementDevice;
     ElementReference ElementSendBtn;
