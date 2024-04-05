@@ -1,24 +1,64 @@
-﻿.main {
-    padding: 10px;
-    overflow: auto;
+﻿i {
+    pointer-events: none;
 }
 
-.devices {
+.main {
+    padding: 10px;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.container {
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    overflow: auto;
-    overflow-x: hidden;
-    margin-top: 10px;
+}
+
+.top-panel {
+    display: flex;
     gap: 5px;
 }
 
-    .devices .device {
-        color: #fff;
-        background-color: #393a5f;
-        padding: 15px;
+    .top-panel .select {
+        flex: 1;
         border-radius: 5px;
     }
 
-        .devices .device:hover {
+    .top-panel .refresh {
+        color: #fff;
+        border-radius: 5px;
+        padding: 5px;
+        font-size: 14px;
+        background-color: #393a5f;
+    }
+
+        .top-panel .refresh:hover {
             background-color: #333456;
         }
+
+.message {
+    text-align: center;
+    color: #7070aa;
+    flex-grow: 1;
+    flex-shrink: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.devices {
+    height: 100%;
+    overflow: auto;
+    margin-top: 10px;
+}
+
+    .devices .devices-area {
+        height: 100%;
+        gap: 5px;
+        display: flex;
+        flex-direction: column;
+    }

@@ -4,8 +4,10 @@
 @using System.Net.Sockets
 @using CommunityToolkit.Maui.Core.Extensions
 @using CommunityToolkit.Maui.Storage
+@using System.Text
 @inject ILocalNetworkService lns
 @inject IStorageService storage
+@inject IJSRuntime js
 @inject NavigationService NavigationService
 
 <header class="header">
@@ -16,38 +18,55 @@
                  Count="SendFiles.Count">
         <i class="ph ph-upload-simple"></i>
     </BadgeButton>
+    <BadgeButton Class="left" OnClick="@(() => Listening ? StopListening() : StartListening())">
+        @if (Listening)
+        {
+            <i class="ph ph-ear"></i>
+        }
+        else
+        {
+            <i class="ph ph-ear-slash"></i>
+        }
+    </BadgeButton>
 </header>
 
 <div class="main">
     <div class="container">
+        <div class="top-panel">
+            <select class="select" @bind="SelectedIp" @bind:after="IpChanged">
+                @foreach (var ip in IPs)
+                {
+                    <option value="@ip" selected="@(ip.ToString() == SelectedIp)">@ip.ToString()</option>
+                }
+            </select>
+            <div class="refresh" @onclick="RefreshIps">
+                <i class="ph ph-arrows-clockwise"></i>
+            </div>
+        </div>
 
-        <select>
-            @foreach (var ip in IPs)
-            {
-                <option value="@ip.ToString()">@ip.ToString()</option>
-            }
-        </select>
-
-        @* <input type="file" @onchange="@FileChosen"/> *@
-        @* <InputFile OnChange="@FileChosen" /> *@
-        <button @onclick="@PickFile"> pick a file</button>
-        <button @onclick="@PickFolder"> pick a folder</button>
-
-        <div class="devices">
-            @foreach (var ip in LocalIPs)
-            {
-                <div class="device">
-                    @ip.ToString()
+        @if (Supported)
+        {
+            <div class="devices">
+                <div class="devices-area">
+                    @foreach (var ip in LocalIPs)
+                    {
+                        <DeviceComponent Ip="@ip" SendCallback="StartSending"></DeviceComponent>
+                    }
                 </div>
+            </div>
+        }
+
+        <div class="message">
+            @if (IPs.Count == 0)
+            {
+                @("Could not find interfaces with default gateway")
+            }
+            else if (!Supported)
+            {
+                @("Subnets with more than 65534 hosts are not currently supported")
             }
         </div>
 
-        @FileName
-        @FolderName
-        @Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
-        @Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-        @Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments)
-        @Environment.GetFolderPath(Environment.SpecialFolder.Personal)
     </div>
 </div>
 
@@ -59,24 +78,45 @@
 
     public List<IPAddress> LocalIPs { get; set; } = new();
 
-    public string? FileName { get; set; }
-    public string? FolderName { get; set; }
-    public string? Path1 { get; set; }
+    public string? SelectedIp { get; set; }
+
+    public bool Supported { get; set; }
+
+    public bool Loading { get; set; }
+
+    public bool Listening { get; set; }
 
     [CascadingParameter(Name = "SendFiles")]
     public List<string> SendFiles { get; set; }
 
+    [CascadingParameter(Name = "SaveFolder")]
+    public string? SaveFolder { get; set; }
+
+    IJSObjectReference jsModule = null!;
+
+    TcpListener TcpListener { get; set; } = new TcpListener(IPAddress.Any, 8887);
+
+    TcpClient TcpClient { get; set; } = new TcpClient();
+
+    public CancellationTokenSource? ListenerTokenSource { get; set; }
+
+    public CancellationTokenSource? ClientTokenSource { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
-        IPs = lns.GetAllHostIpAddressesWithGateway();
-        GetGateways();
-        // await Task.Run(() =>
-        // {
-        //     IPs = lns.GetAllHostIpAddressesWithGateway();
-        //     GetGateways();
-        //     // GetLocalIPs();
-        // });
-        await PingLocalIPs();
+        // IPs = lns.GetAllHostIpAddressesWithGateway();
+        // GetGateways();
+        await Task.Run(async () =>
+        {
+            IPs = lns.GetAllHostIpAddressesWithGateway();
+            GetGateways();
+            // GetLocalIPs();
+            var selectedIp = IPs
+                .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
+            Supported = selectedIp is null ? false : true;
+            SelectedIp ??= selectedIp?.ToString();
+            await PingLocalIPs(selectedIp);
+        });
     }
 
     private void GetGateways()
@@ -91,69 +131,92 @@
         }
     }
 
-    private void GetLocalIPs()
+    // private void GetLocalIPs()
+    // {
+    //     foreach (var ip in IPs)
+    //     {
+    //         IPAddress? mask = lns.GetSubnetMaskByIp(ip);
+
+    //         if (mask?.GetAddressBytes().Count(b => b == 0) > 1 ||
+    //             mask is null)
+    //             continue;
+
+    //         if (mask is not null)
+    //         {
+    //             IPAddress network = lns.GetNetworkAddress(ip, mask);
+
+    //             byte[] hosts = mask.GetAddressBytes().Select(b => (byte)(byte.MaxValue - b)).ToArray();
+
+    //             byte[] init = new byte[4];
+    //             while (!hosts.SequenceEqual(init))
+    //             {
+    //                 for (int i = 3; i >= 0; i--)
+    //                 {
+    //                     if (init[i]++ == 255) continue;
+    //                     break;
+    //                 }
+
+    //                 var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
+
+    //                 Ping p = new Ping();
+    //                 p.PingCompleted += PingCompleted;
+    //                 p.SendAsync(host, host);
+    //             }
+    //         }
+    //     }
+    // }
+
+    // private void PingCompleted(object sender, PingCompletedEventArgs e)
+    // {
+    //     if (e.Reply != null &&
+    //         e.Reply.Status == IPStatus.Success &&
+    //         !IPs.Contains((IPAddress)e.UserState!) &&
+    //         !Gateways.Contains((IPAddress)e.UserState!) &&
+    //         !LocalIPs.Contains((IPAddress)e.UserState!))
+    //     {
+    //         LocalIPs.Add((IPAddress)e.UserState!);
+    //         InvokeAsync(StateHasChanged);
+    //     }
+    // }
+
+    private async Task PingLocalIPs(IPAddress? ip)
     {
-        foreach (var ip in IPs.Skip(1))
+        if (ip is null)
+            return;
+
+        IPAddress? mask = lns.GetSubnetMaskByIp(ip);
+
+        if (mask is null || mask.GetAddressBytes().Count(b => b == 0) > 2)
+            return;
+
+        Loading = true;
+        await InvokeAsync(StateHasChanged);
+
+        IPAddress network = lns.GetNetworkAddress(ip, mask);
+
+        byte[] hosts = mask.GetAddressBytes().Select(b => (byte)(byte.MaxValue - b)).ToArray();
+
+        List<Task> pings = new List<Task>();
+
+        byte[] init = new byte[4];
+        while (!hosts.SequenceEqual(init))
         {
-            IPAddress? mask = lns.GetSubnetMaskByIp(ip);
-
-            if (mask is not null)
+            for (int i = 3; i >= 0; i--)
             {
-                IPAddress network = lns.GetNetworkAddress(ip, mask);
-
-                byte[] hosts = mask.GetAddressBytes().Select(b => (byte)(byte.MaxValue - b)).ToArray();
-
-                byte[] init = new byte[4];
-                while (!hosts.SequenceEqual(init))
-                {
-                    for (int i = 3; i >= 0; i--)
-                    {
-                        if (init[i]++ == 255) continue;
-                        break;
-                    }
-
-                    var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
-
-                    Ping p = new Ping();
-                    p.PingCompleted += PingCompleted;
-                    p.SendAsync(host, host);
-                }
+                if (init[i]++ == 255) continue;
+                break;
             }
+
+            var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
+
+            // Task.Run(() => PingHost(host));
+            pings.Add(PingHost(host));
+            // PingHost(host);
         }
-    }
 
-    private async Task PingLocalIPs()
-    {
-        foreach (var ip in IPs.Skip(1))
-        {
-            IPAddress? mask = lns.GetSubnetMaskByIp(ip);
-
-            if (mask is not null)
-            {
-                IPAddress network = lns.GetNetworkAddress(ip, mask);
-
-                byte[] hosts = mask.GetAddressBytes().Select(b => (byte)(byte.MaxValue - b)).ToArray();
-
-                List<Task> pings = new List<Task>();
-
-                byte[] init = new byte[4];
-                while (!hosts.SequenceEqual(init))
-                {
-                    for (int i = 3; i >= 0; i--)
-                    {
-                        if (init[i]++ == 255) continue;
-                        break;
-                    }
-
-                    var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
-
-                    pings.Add(PingHost(host));
-                    // PingHost(host);
-                }
-
-                await Task.WhenAll();
-            }
-        }
+        await Task.WhenAll(pings);
+        Loading = true;
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task PingHost(IPAddress host)
@@ -162,7 +225,7 @@
         PingReply pr = await pingSender.SendPingAsync(host, 10_000);
 
         if (pr.Status == IPStatus.Success &&
-            !IPs.Contains(pr.Address) &&
+            // !IPs.Contains(pr.Address) &&
             !Gateways.Contains(pr.Address) &&
             !LocalIPs.Contains(pr.Address))
         {
@@ -171,35 +234,202 @@
         }
     }
 
-    private void PingCompleted(object sender, PingCompletedEventArgs e)
+    private void IpChanged()
     {
-        if (e.Reply != null &&
-            e.Reply.Status == IPStatus.Success &&
-            !IPs.Contains((IPAddress)e.UserState!) &&
-            !Gateways.Contains((IPAddress)e.UserState!) &&
-            !LocalIPs.Contains((IPAddress)e.UserState!))
+        IPAddress? ip = SelectedIp is null ? null : IPAddress.Parse(SelectedIp);
+        Supported = ip is null || lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) > 2 ? false : true;
+        if (Supported)
         {
-            LocalIPs.Add((IPAddress)e.UserState!);
-            InvokeAsync(StateHasChanged);
+            LocalIPs.Clear();
+            Task.Run(() => PingLocalIPs(ip));
         }
     }
 
-    private void FileChosen(InputFileChangeEventArgs e)
+    private void RefreshIps()
     {
-        FileName = e.File.Name;
+        IPAddress? ip = SelectedIp is null ? null : IPAddress.Parse(SelectedIp);
+        LocalIPs.Clear();
+        Task.Run(() => PingLocalIPs(ip));
     }
 
-    private async Task PickFile()
+    private async Task StartListening()
     {
-        var file = await FilePicker.PickAsync();
-        FileName = file?.FullPath;
-        // Environment.SpecialFolder.UserProfile;
+        try
+        {
+            Listening = true;
+            TcpListener.Start();
+
+            while (true)
+            {
+                ListenerTokenSource = new CancellationTokenSource();
+                var tcpClient = await TcpListener.AcceptTcpClientAsync(ListenerTokenSource.Token);
+                Task.Run(async () => await ProcessClientAsync(tcpClient));
+            }
+        }
+        catch (Exception ex) when (ex is OperationCanceledException || ex is SocketException)
+        {
+            Listening = false;
+            ListenerTokenSource = null;
+        }
+        finally
+        {
+            TcpListener.Stop();
+        }
     }
 
-    private async Task PickFolder()
+    private async Task StopListening()
     {
-        var folder = await FolderPicker.PickAsync(default);
-        FolderName = folder?.Folder?.Path;
-        // FileSaver.SaveAsync();
+        Listening = false;
+        ListenerTokenSource?.Cancel();
+        ListenerTokenSource = null;
+    }
+
+    private async Task ProcessClientAsync(TcpClient tcpClient)
+    {
+        var stream = tcpClient.GetStream();
+        int bufferSize = 1024;
+        byte[] buffer;
+        // byte[] header;
+
+        // Получаем количество файлов
+        byte[] fileCountBytes = new byte[4];
+        stream.Read(fileCountBytes, 0, 4);
+        int fileCount = BitConverter.ToInt32(fileCountBytes, 0);
+
+        for (int i = 0; i < fileCount; i++)
+        {
+            var fileNameList = new List<byte>();
+            int bytesRead;
+            // Получаем имя файла
+            while ((bytesRead = stream.ReadByte()) != '\n')
+            {
+                fileNameList.Add((byte)bytesRead);
+            }
+            string fileName = Encoding.UTF8.GetString(fileNameList.ToArray());
+
+            // Получаем размер файла
+            byte[] fileSizeBytes = new byte[8];
+            stream.Read(fileSizeBytes, 0, 8);
+            int fileSize = BitConverter.ToInt32(fileSizeBytes, 0);
+
+            string extension = Path.GetExtension(fileName);
+            string tempName = Path.GetFileNameWithoutExtension(fileName);
+            string filePath = Path.Combine(SaveFolder, fileName);
+            int n = 1;
+            while (File.Exists(filePath))
+            {
+                fileName = $"{tempName} ({n}){extension}";
+                filePath = Path.Combine(SaveFolder, fileName);
+                n++;
+            }
+
+#if ANDROID
+            var activity = Platform.CurrentActivity ?? throw new NullReferenceException("Current activity is null");
+            if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.ReadExternalStorage) != Android.Content.PM.Permission.Granted)
+            {
+                AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] { Android.Manifest.Permission.ReadExternalStorage }, 1);
+            }
+            if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.WriteExternalStorage) != Android.Content.PM.Permission.Granted)
+            {
+                AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] { Android.Manifest.Permission.WriteExternalStorage }, 2);
+            }
+            // if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.ManageExternalStorage) != Android.Content.PM.Permission.Granted)
+            // {
+            //     AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] {  Android.Manifest.Permission.ManageExternalStorage }, 3);
+            // }
+#endif
+
+            try
+            {
+                using var fs = new FileStream(filePath, FileMode.Create);
+                while (fileSize > 0)
+                {
+                    buffer = new byte[bufferSize];
+                    int size = stream.Read(buffer);
+                    fs.Write(buffer, 0, size);
+                    fileSize -= size;
+                }
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+    }
+
+    private async Task StartSending(IPAddress ip)
+    {
+        int bufferSize = 1024;
+        byte[] buffer;
+        // byte[] header;
+
+        try
+        {
+            if (TcpClient.Connected)
+            {
+                StopSending();
+                // TcpClient.Close();
+                // TcpClient = new TcpClient();
+            }
+
+            ClientTokenSource = new CancellationTokenSource();
+            TcpClient.SendTimeout = 60_000;
+            TcpClient.ReceiveTimeout = 60_000;
+            await TcpClient.ConnectAsync(ip, 8887, ClientTokenSource.Token);
+
+            var stream = TcpClient.GetStream();
+
+            // Отправляем количество файлов
+            int fileCount = SendFiles.Count;
+            byte[] fileCountBytes = BitConverter.GetBytes(fileCount);
+            stream.Write(fileCountBytes, 0, 4);
+
+            foreach (string filePath in SendFiles)
+            {
+                // Отправляем имя файла
+                string fileName = Path.GetFileName(filePath);
+                byte[] data = Encoding.UTF8.GetBytes(fileName + '\n');
+                await stream.WriteAsync(data);
+
+                // Отправляем размер файла
+                long fileSize = new FileInfo(filePath).Length;
+                byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
+                stream.Write(fileSizeBytes, 0, 8);
+
+                using var fs = new FileStream(filePath, FileMode.Open);
+                long size = fs.Length < bufferSize ? fs.Length : bufferSize;
+                buffer = new byte[size];
+                int bytesRead;
+                while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    if (bytesRead < buffer.Length)
+                    {
+                        Array.Resize(ref buffer, bytesRead);
+                    }
+                    await stream.WriteAsync(buffer);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is OperationCanceledException || ex is SocketException)
+        {
+            ClientTokenSource = null;
+        }
+        catch (Exception ex)
+        {
+            ClientTokenSource = null;
+        }
+        finally
+        {
+            StopSending();
+        }
+    }
+
+    private void StopSending()
+    {
+        ClientTokenSource?.Cancel();
+        ClientTokenSource = null;
+        TcpClient.Close();
+        TcpClient = new TcpClient();
     }
 }
