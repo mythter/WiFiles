@@ -9,6 +9,8 @@ namespace Client
         {
             services.AddScoped<NavigationService>();
 
+            services.AddSingleton<LocalTransferService>();
+
 #if ANDROID
             services.AddScoped<ILocalNetworkService, AndroidLocalNetworkService>();
             services.AddScoped<IStorageService, AndroidStorageService>();
