@@ -1,14 +1,13 @@
 ﻿.device {
     color: #fff;
     background-color: #393a5f;
-    padding: 10px;
     height: 50px;
     padding-left: 15px;
-    padding-right: 15px;
     border-radius: 5px;
     display: flex;
     align-items: center;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
     .device:hover {
@@ -27,12 +26,14 @@
 
     .device .send-btn {
         background-color: #4a4b74;
-        border-radius: 5px;
-        padding: 5px;
-        height: 15px;
-        width: 15px;
+        height: 100%;
+        width: 50px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 25px;
     }
 
 .hidden {
-    display: none;
+    display: none !important;
 }
