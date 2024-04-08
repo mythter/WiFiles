@@ -50,7 +50,7 @@ namespace Client
                     var uri = intent?.Data;
 
                     var docUriTree = DocumentsContract.BuildDocumentUriUsingTree(uri, DocumentsContract.GetTreeDocumentId(uri));
-
+                    
                     var context = Android.App.Application.Context;
 
                     if (docUriTree is not null)
