@@ -1,37 +1,45 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationService NavigationService
 @inject IStorageService StorageService
+@inject LocalTransferService TransferService
 
 <CascadingValue Value="@SendFiles" Name="SendFiles">
-    <CascadingValue Value="@SaveFolder" Name="SaveFolder">
-        <CascadingValue Value="@SetFolder" Name="SetFolder">
-        <div class="page">
-            <main class="main">
-                @Body
-            </main>
-@*             <div class="menu">
-                <div class="item">
+    <CascadingValue Value="@ReceivedFiles" Name="ReceivedFiles">
+        <CascadingValue Value="@SaveFolder" Name="SaveFolder">
+            <CascadingValue Value="@SetFolder" Name="SetFolder">
+                <div class="page">
+                    <main class="main">
+                        @Body
+                    </main>
+                    @*             <div class="menu">
+                    <div class="item">
                     Local
-                </div>
-                <div class="item">
+                    </div>
+                    <div class="item">
                     Global
+                    </div>
+                    </div> *@
                 </div>
-            </div> *@
-        </div>
+            </CascadingValue>
         </CascadingValue>
     </CascadingValue>
 </CascadingValue>
 
 @code {
-    public List<string> SendFiles { get; set; } = new();
+    public List<FileModel> SendFiles { get; set; } = new();
+
+    public List<FileModel> ReceivedFiles { get; set; } = new();
 
     public string? SaveFolder { get; set; }
 
-    public EventCallback<string> SetFolder { get; set; } 
+    public EventCallback<string> SetFolder { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
+        TransferService.StartReceivingFile += ReceiveFile;
+
         SaveFolder = StorageService.GetDefaultFolder();
+        TransferService.SaveFolder = SaveFolder;
 
         SetFolder = EventCallback.Factory.Create<string>(this, OnSetFolder);
         NavigationService.NavigateTo("local");
@@ -40,5 +48,12 @@
     private void OnSetFolder(string path)
     {
         SaveFolder = path;
+        TransferService.SaveFolder = path;
+    }
+
+    private void ReceiveFile(object? sender, FileModel file)
+    {
+        ReceivedFiles.Add(file);
+        InvokeAsync(StateHasChanged);
     }
 }
