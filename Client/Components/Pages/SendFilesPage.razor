@@ -12,24 +12,26 @@
 </header>
 
 <div class="files">
-    @foreach (string name in SendFiles)
+    @foreach (FileModel file in SendFiles)
     {
-        <FileComponent FilePath="@name"></FileComponent>
+        <FileComponent File="@file"></FileComponent>
     }
 </div>
 
 @code {
     [CascadingParameter(Name = "SendFiles")]
-    public List<string> SendFiles { get; set; }
+    public List<FileModel> SendFiles { get; set; }
 
     private async Task PickFiles()
     {
         List<string> files = await storageService.PickFilesAsync();
-        foreach (var file in files)
+        foreach (var filePath in files)
         {
-            if (!string.IsNullOrEmpty(file) &&
-                !SendFiles.Contains(file))
+            if (!string.IsNullOrEmpty(filePath) &&
+                !SendFiles.Any(f => f.Path == filePath))
             {
+                long fileSize = new FileInfo(filePath).Length;
+                FileModel file = new FileModel(filePath, fileSize);
                 SendFiles.Add(file);
             }
         }
