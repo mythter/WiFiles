@@ -8,9 +8,11 @@
 @inject IJSRuntime js
 @inject NavigationService NavigationService
 @inject LocalTransferService TransferService
+@implements IDisposable
 
 <header class="header">
-    <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))">
+    <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
+                 Count="ReceivedFiles.Count">
         <i class="ph ph-download-simple"></i>
     </BadgeButton>
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
@@ -62,7 +64,7 @@
             }
             else if (!Supported)
             {
-                @("Subnets with more than 65534 hosts are not currently supported")
+                @("Networks with more than 65534 hosts are not currently supported")
             }
         </div>
 
@@ -86,7 +88,10 @@
     public bool Listening { get; set; }
 
     [CascadingParameter(Name = "SendFiles")]
-    public List<string> SendFiles { get; set; }
+    public List<FileModel> SendFiles { get; set; }
+
+    [CascadingParameter(Name = "ReceivedFiles")]
+    public List<FileModel> ReceivedFiles { get; set; }
 
     [CascadingParameter(Name = "SaveFolder")]
     public string? SaveFolder { get; set; }
@@ -95,6 +100,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Listening = TransferService.IsListening;
+        TransferService.ListeningStarted += ListeningStarted;
+        TransferService.ListeningStopped += ListeningStopped;
         // IPs = lns.GetAllHostIpAddressesWithGateway();
         // GetGateways();
         await Task.Run(async () =>
@@ -216,7 +224,7 @@
         PingReply pr = await pingSender.SendPingAsync(host, 10_000);
 
         if (pr.Status == IPStatus.Success &&
-            // !IPs.Contains(pr.Address) &&
+            !IPs.Contains(pr.Address) &&
             !Gateways.Contains(pr.Address) &&
             !LocalIPs.Contains(pr.Address))
         {
@@ -245,13 +253,11 @@
 
     private async Task StartListening()
     {
-        Listening = true;
-        await TransferService.StartListeningAsync(SaveFolder);
+        await TransferService.StartListeningAsync();
     }
 
     private async Task StopListening()
     {
-        Listening = false;
         await TransferService.StopListeningAsync();
     }
 
@@ -263,5 +269,21 @@
     private void StopSending()
     {
         TransferService.StopSending();
+    }
+
+    private void ListeningStarted(object? sender, EventArgs e)
+    {
+        Listening = true;
+    }
+
+    private void ListeningStopped(object? sender, EventArgs e)
+    {
+        Listening = false;
+    }
+
+    public void Dispose()
+    {
+        TransferService.ListeningStarted -= ListeningStarted;
+        TransferService.ListeningStopped -= ListeningStopped;
     }
 }
