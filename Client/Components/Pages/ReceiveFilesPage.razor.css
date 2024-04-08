@@ -1,4 +1,10 @@
-﻿.folder {
+﻿.container {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.folder {
     overflow: hidden;
     padding: 7px;
     position: relative;
@@ -29,6 +35,15 @@
         .folder .folder-area:active {
             color: #c2bfe1;
         }
+
+.files {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
 
 .running-text {
     animation: moving infinite linear alternate;

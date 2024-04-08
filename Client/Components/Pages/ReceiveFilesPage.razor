@@ -1,5 +1,7 @@
 ﻿@page "/receivefiles"
+@using System.Net
 @inject NavigationService NavigationService
+@inject LocalTransferService TransferService
 @inject IStorageService storageService
 @inject IJSRuntime js
 
@@ -12,13 +14,17 @@
     </BadgeButton>
 </header>
 
-<div>
+<div class="container">
     <div class="folder" @ref=ElementFolderContainer>
         <div class="folder-area" @ref=ElementFolder @onclick="@PickFolder">
             @Folder
         </div>
     </div>
     <div class="files">
+        @foreach(var file in ReceivedFiles)
+        {
+            <FileComponent File="@file"></FileComponent>
+        }
     </div>
 </div>
 
@@ -28,6 +34,9 @@
 
     [CascadingParameter(Name = "SetFolder")]
     public EventCallback<string> SetFolder { get; set; }
+
+    [CascadingParameter(Name = "ReceivedFiles")]
+    public List<FileModel> ReceivedFiles { get; set; }
 
     IJSObjectReference jsModule;
 
@@ -45,7 +54,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        await InvokeAsync(StateHasChanged);
+        // await InvokeAsync(StateHasChanged);
         if(jsModule is not null)
         {
             await jsModule.InvokeVoidAsync("ReceiveFilesPage.FolderChanged", ElementFolderContainer, ElementFolder);

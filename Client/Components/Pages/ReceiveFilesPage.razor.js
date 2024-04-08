@@ -53,7 +53,9 @@
     }
 
     static FolderChanged(container, folder) {
-        let containerWidth = this.GetContainerWidth(container);
-        this.CheckAnimation(folder, containerWidth, this.speed);
+        if (container && folder) {
+            let containerWidth = this.GetContainerWidth(container);
+            this.CheckAnimation(folder, containerWidth, this.speed);
+        }
     }
 }
