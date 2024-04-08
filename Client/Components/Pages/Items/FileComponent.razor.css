@@ -11,7 +11,12 @@
     .file .icon {
         font-size: 35px;
         display: flex;
+        flex-direction: column;
         align-items: center;
+    }
+
+    .file .progress {
+        font-size: 14px;
     }
 
     .file .info {

@@ -1,28 +1,60 @@
 ﻿@inject IJSRuntime js
+@implements IDisposable
 
 <div class="file">
     <div class="icon">
         @((MarkupString)GetFileIcon())
+        @if (File.Progress is not null)
+        {
+            <div class="progress"> @($"{Progress}%") </div>
+        }
     </div>
     <div class="info" @ref=ElementInfo>
         <div class="file-name" @ref=ElementName>
-            @Path.GetFileName(FilePath)
+            @Path.GetFileName(File.Path)
         </div>
         <div class="file-path" @ref=ElementPath>
-            @Path.GetDirectoryName(FilePath)
+            @Path.GetDirectoryName(File.Path)
         </div>
     </div>
 </div>
 
 @code {
     [Parameter]
-    public string? FilePath { get; set; }
+    public FileModel File { get; set; }
+
+    public long Progress { get; set; }
 
     IJSObjectReference jsModule = null!;
 
     ElementReference ElementName;
     ElementReference ElementPath;
     ElementReference ElementInfo;
+
+    protected override void OnInitialized()
+    {
+        if (File?.Progress is not null)
+        {
+            File.Progress.ProgressChanged += OnProgressChanged;
+        }
+
+        if (!System.IO.File.Exists(File?.Path))
+        {
+            Progress = -1;
+        }
+        else if (File is not null && new FileInfo(File.Path).Length == File.Size)
+        {
+            Progress = 100;
+        }
+    }
+
+    // protected override void OnParametersSet()
+    // {
+    //     if (File?.Progress is not null)
+    //     {
+    //         File.Progress.ProgressChanged += OnProgressChanged;
+    //     }
+    // }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -33,12 +65,22 @@
         }
     }
 
+    private void OnProgressChanged(object? sender, long progress)
+    {
+        long percent = (long)(progress * 100 / File.Size);
+        if (Progress != percent)
+        {
+            Progress = percent;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
     string GetFileIcon()
     {
         // useful repository with file extensions
         // https://github.com/dyne/file-extension-list
 
-        return Path.GetExtension(FilePath)?.Trim('.') switch
+        return Path.GetExtension(File.Path)?.Trim('.') switch
         {
             // text formats
             "pdf" => "<i class=\"ph ph-file-pdf\"></i>",
@@ -256,6 +298,14 @@
             "xls" => "<i class=\"ph ph-file-xls\"></i>",
 
             _ => "<i class=\"ph ph-file\"></i>"
+        };
+    }
+
+    public void Dispose()
+    {
+        if (File?.Progress is not null)
+        {
+            File.Progress.ProgressChanged -= OnProgressChanged;
         };
     }
 }
