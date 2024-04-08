@@ -1,9 +1,12 @@
-﻿using System.Net;
+﻿using Client.Models;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
 namespace Client.Services
 {
+    //public delegate void StartReceivingFileEventHandler(FileModel file);
+
     public class LocalTransferService
     {
         public TcpListener TcpListener { get; set; }
@@ -12,10 +15,20 @@ namespace Client.Services
         public int PortListen { get; set; } = 8887;
         public int PortConnect { get; set; } = 8887;
 
-        public CancellationTokenSource? ListenerTokenSource { get; set; }
-        public CancellationTokenSource? ClientTokenSource { get; set; }
+        private CancellationTokenSource? ListenerTokenSource { get; set; }
+        private CancellationTokenSource? ClientTokenSource { get; set; }
 
         public int BufferSize { get; set; } = 1024;
+
+        public string? SaveFolder { get; set; }
+
+        public bool IsListening { get; private set; }
+
+        public event EventHandler<FileModel>? StartReceivingFile;
+        public event EventHandler? ListeningStarted;
+        public event EventHandler? ListeningStopped;
+
+        public string ExceptionMessage { get; private set; }
 
         public LocalTransferService()
         {
@@ -23,7 +36,7 @@ namespace Client.Services
             TcpClient = new TcpClient();
         }
 
-        public async Task StartSendingAsync(IPAddress ip, List<string> files)
+        public async Task StartSendingAsync(IPAddress ip, List<FileModel> files)
         {
             byte[] buffer;
 
@@ -38,7 +51,7 @@ namespace Client.Services
                 TcpClient.ReceiveTimeout = 60_000;
                 ClientTokenSource = new CancellationTokenSource();
                 await TcpClient.ConnectAsync(ip, PortConnect, ClientTokenSource.Token);
-
+                ClientTokenSource = null;
                 NetworkStream stream = TcpClient.GetStream();
 
                 // Отправляем количество файлов
@@ -46,19 +59,38 @@ namespace Client.Services
                 byte[] fileCountBytes = BitConverter.GetBytes(fileCount);
                 await stream.WriteAsync(fileCountBytes.AsMemory(0, 4));
 
-                foreach (string filePath in files)
+                foreach (FileModel file in files)
                 {
                     // Отправляем имя файла
-                    string fileName = Path.GetFileName(filePath);
+                    string fileName = Path.GetFileName(file.Path);
                     byte[] data = Encoding.UTF8.GetBytes(fileName + '\n');
                     await stream.WriteAsync(data);
 
                     // Отправляем размер файла
-                    long fileSize = new FileInfo(filePath).Length;
+                    long fileSize = new FileInfo(file.Path).Length;
                     byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
                     await stream.WriteAsync(fileSizeBytes.AsMemory(0, 8));
 
-                    using FileStream fs = new FileStream(filePath, FileMode.Open);
+
+#if ANDROID
+                    var activity = Platform.CurrentActivity ?? throw new NullReferenceException("Current activity is null");
+                    if (Android.OS.Build.VERSION.SdkInt < Android.OS.BuildVersionCodes.R)
+                    {
+                        if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.ReadExternalStorage) != Android.Content.PM.Permission.Granted)
+                        {
+                            AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] { Android.Manifest.Permission.ReadExternalStorage }, 1);
+                        }
+                    }
+                    else
+                    {
+                        if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.ManageExternalStorage) != Android.Content.PM.Permission.Granted)
+                        {
+                            AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] { Android.Manifest.Permission.ManageExternalStorage }, 3);
+                        }
+                    }
+#endif
+
+                    using FileStream fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
                     long size = fs.Length < BufferSize ? fs.Length : BufferSize;
                     buffer = new byte[size];
                     int bytesRead;
@@ -72,13 +104,19 @@ namespace Client.Services
                     }
                 }
             }
-            catch (Exception ex) when (ex is OperationCanceledException || ex is SocketException)
+            catch (SocketException ex)
             {
                 ClientTokenSource = null;
+                throw;
             }
-            catch (Exception)
+            catch (OperationCanceledException ex)
+            {
+                
+            }
+            catch (Exception ex)
             {
                 ClientTokenSource = null;
+                throw;
             }
             finally
             {
@@ -94,17 +132,19 @@ namespace Client.Services
             TcpClient = new TcpClient();
         }
 
-        public async Task StartListeningAsync(string destinationFolder)
+        public async Task StartListeningAsync()
         {
             try
             {
+                IsListening = true;
                 TcpListener.Start();
+                ListeningStarted?.Invoke(this, EventArgs.Empty);
 
                 while (true)
                 {
                     ListenerTokenSource = new CancellationTokenSource();
                     var tcpClient = await TcpListener.AcceptTcpClientAsync(ListenerTokenSource.Token);
-                    Task.Run(async () => await ProcessClientAsync(tcpClient, destinationFolder));
+                    Task.Run(async () => await ProcessClientAsync(tcpClient));
                 }
             }
             catch (Exception ex) when (ex is OperationCanceledException || ex is SocketException)
@@ -119,6 +159,7 @@ namespace Client.Services
 
         public async Task StopListeningAsync()
         {
+            IsListening = false;
             if (ListenerTokenSource is not null)
             {
                 await ListenerTokenSource.CancelAsync();
@@ -126,11 +167,12 @@ namespace Client.Services
 
             ListenerTokenSource = null;
             TcpListener.Stop();
+            ListeningStopped?.Invoke(this, EventArgs.Empty);
         }
 
-        private async Task ProcessClientAsync(TcpClient tcpClient, string destinationFolder)
+        private async Task ProcessClientAsync(TcpClient tcpClient)
         {
-            var stream = tcpClient.GetStream();
+            NetworkStream stream = tcpClient.GetStream();
             byte[] buffer;
 
             // Получаем количество файлов
@@ -156,45 +198,69 @@ namespace Client.Services
 
                 string extension = Path.GetExtension(fileName);
                 string tempName = Path.GetFileNameWithoutExtension(fileName);
-                string filePath = Path.Combine(destinationFolder, fileName);
+                string filePath = Path.Combine(SaveFolder, fileName);
                 int n = 1;
                 while (File.Exists(filePath))
                 {
                     fileName = $"{tempName} ({n}){extension}";
-                    filePath = Path.Combine(destinationFolder, fileName);
+                    filePath = Path.Combine(SaveFolder, fileName);
                     n++;
                 }
 
 #if ANDROID
-            var activity = Platform.CurrentActivity ?? throw new NullReferenceException("Current activity is null");
-            if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.ReadExternalStorage) != Android.Content.PM.Permission.Granted)
-            {
-                AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] { Android.Manifest.Permission.ReadExternalStorage }, 1);
-            }
-            if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.WriteExternalStorage) != Android.Content.PM.Permission.Granted)
-            {
-                AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] { Android.Manifest.Permission.WriteExternalStorage }, 2);
-            }
-            // if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.ManageExternalStorage) != Android.Content.PM.Permission.Granted)
-            // {
-            //     AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] {  Android.Manifest.Permission.ManageExternalStorage }, 3);
-            // }
+                var activity = Platform.CurrentActivity ?? throw new NullReferenceException("Current activity is null");
+                if (Android.OS.Build.VERSION.SdkInt < Android.OS.BuildVersionCodes.R)
+                {
+                    if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.ReadExternalStorage) != Android.Content.PM.Permission.Granted)
+                    {
+                        AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] { Android.Manifest.Permission.ReadExternalStorage }, 1);
+                    }
+                    if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.WriteExternalStorage) != Android.Content.PM.Permission.Granted)
+                    {
+                        AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] { Android.Manifest.Permission.WriteExternalStorage }, 2);
+                    }
+                }
+                else
+                {
+                    if (AndroidX.Core.Content.ContextCompat.CheckSelfPermission(activity, Android.Manifest.Permission.ManageExternalStorage) != Android.Content.PM.Permission.Granted)
+                    {
+                        AndroidX.Core.App.ActivityCompat.RequestPermissions(activity, new[] { Android.Manifest.Permission.ManageExternalStorage }, 3);
+                    }
+                }
 #endif
 
                 try
                 {
-                    using (FileStream fs = new FileStream(filePath, FileMode.Create))
+                    using (FileStream fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
                     {
-                        while (fileSize > 0)
+                        IProgress<long> progress = new Progress<long>();
+                        FileModel file = new FileModel(filePath, fileSize)
                         {
-                            buffer = new byte[BufferSize];
+                            Sender = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address,
+                            Progress = (Progress<long>)progress,
+                        };
+                        StartReceivingFile?.Invoke(null, file);
+                        long sentSize = 0;
+                        object locker = new object();
+                        while (sentSize < fileSize)
+                        {
+                            buffer = new byte[BufferSize < fileSize - sentSize ? BufferSize : fileSize - sentSize];
                             int size = await stream.ReadAsync(buffer);
+                            if (size == 0)
+                            {
+                                // client has disconnected
+                                break;
+                            }
                             await fs.WriteAsync(buffer.AsMemory(0, size));
-                            fileSize -= size;
+                            lock (locker)
+                            {
+                                sentSize += size;
+                                progress.Report(sentSize);
+                            }
                         }
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     if (File.Exists(filePath))
                     {
