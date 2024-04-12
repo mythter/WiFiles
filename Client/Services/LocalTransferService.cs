@@ -47,8 +47,8 @@ namespace Client.Services
                     StopSending();
                 }
 
-                TcpClient.SendTimeout = 60_000;
-                TcpClient.ReceiveTimeout = 60_000;
+                //TcpClient.SendTimeout = 60_000;
+                //TcpClient.ReceiveTimeout = 60_000;
                 ClientTokenSource = new CancellationTokenSource();
                 await TcpClient.ConnectAsync(ip, PortConnect, ClientTokenSource.Token);
                 ClientTokenSource = null;
@@ -106,16 +106,13 @@ namespace Client.Services
             }
             catch (SocketException ex)
             {
-                ClientTokenSource = null;
                 throw;
             }
             catch (OperationCanceledException ex)
             {
-                
             }
             catch (Exception ex)
             {
-                ClientTokenSource = null;
                 throw;
             }
             finally
@@ -143,13 +140,21 @@ namespace Client.Services
                 while (true)
                 {
                     ListenerTokenSource = new CancellationTokenSource();
-                    var tcpClient = await TcpListener.AcceptTcpClientAsync(ListenerTokenSource.Token);
+                    TcpClient tcpClient = await TcpListener.AcceptTcpClientAsync(ListenerTokenSource.Token);
+                    ListenerTokenSource = null;
                     Task.Run(async () => await ProcessClientAsync(tcpClient));
                 }
             }
-            catch (Exception ex) when (ex is OperationCanceledException || ex is SocketException)
+            catch (SocketException ex)
             {
-                ListenerTokenSource = null;
+                throw;
+            }
+            catch (OperationCanceledException ex)
+            {
+            }
+            catch (Exception ex)
+            {
+                throw;
             }
             finally
             {
@@ -163,9 +168,9 @@ namespace Client.Services
             if (ListenerTokenSource is not null)
             {
                 await ListenerTokenSource.CancelAsync();
+                ListenerTokenSource = null;
             }
 
-            ListenerTokenSource = null;
             TcpListener.Stop();
             ListeningStopped?.Invoke(this, EventArgs.Empty);
         }
@@ -252,11 +257,12 @@ namespace Client.Services
                                 break;
                             }
                             await fs.WriteAsync(buffer.AsMemory(0, size));
-                            lock (locker)
-                            {
-                                sentSize += size;
-                                progress.Report(sentSize);
-                            }
+                            //lock (locker)
+                            //{
+                                
+                            //}
+                            sentSize += size;
+                            progress.Report(sentSize);
                         }
                     }
                 }
