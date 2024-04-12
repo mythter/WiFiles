@@ -1,0 +1,135 @@
+﻿@inject IJSRuntime js
+
+@{
+    string isVisible = IsVisible ? "appearing" : "hidden disappearing";
+}
+
+<div class="message-container @isVisible" @onclick="Close" @ref="ElementContainer">
+    <div class="message">
+        <div class="title">
+            <div class="title-icon @GetTitleClass()">
+                @((MarkupString)GetTitleIcon())
+            </div>
+            <div class="title-text">
+                @Title
+            </div>
+        </div>
+        <div class="message-text-area">
+            <div class="message-text">
+                @Message
+            </div>
+        </div>
+        <div class="buttons">
+            @if (ButtonsCount == 2)
+            {
+                <div class="button">
+                    Yes
+                </div>
+                <div class="button">
+                    No
+                </div>
+            }
+            else
+            {
+                <div class="button" @onclick="Close">
+                    Ok
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    IJSObjectReference jsModule = null!;
+
+    [Parameter]
+    public MessageType? Type { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public EventCallback? ResultCallback { get; set; }
+
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public int ButtonsCount { get; set; } = 1;
+
+    ElementReference ElementContainer;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/MessageBox.razor.js");
+            await jsModule.InvokeVoidAsync("MessageBox.Init", DotNetObjectReference.Create(this), ElementContainer);
+        }
+    }
+
+    public void Show(MessageType type, string title, string message)
+    {
+        Title = title;
+        Message = message;
+        Type = type;
+        IsVisible = true;
+        StateHasChanged();
+    }
+
+    public void ShowInfo(string text, string title = "Information")
+    {
+        Show(MessageType.Info, title, text);
+    }
+
+    public void ShowWarning(string text, string title = "Warning")
+    {
+        Show(MessageType.Warning, title, text);
+    }
+
+    public void ShowError(string text, string title = "Error occurred")
+    {
+        Show(MessageType.Error, title, text);
+    }
+
+    private void Close()
+    {
+        IsVisible = false;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void Clear()
+    {
+        Type = MessageType.Info;
+        Title = string.Empty;
+        Message = string.Empty;
+    }
+
+    private string GetTitleIcon()
+    {
+        return Type switch
+        {
+            MessageType.Info => "<i class=\"ph ph-info\"></i>",
+            MessageType.Warning => "<i class=\"ph ph-warning\"></i>",
+            MessageType.Error => "<i class=\"ph ph-seal-warning\"></i>",
+            MessageType.Request => "<i class=\"ph ph-question\"></i>",
+            _ => "<i class=\"ph ph-info\"></i>",
+        };
+    }
+
+    private string GetTitleClass()
+    {
+        return Type switch
+        {
+            MessageType.Info => "info",
+            MessageType.Warning => "warning",
+            MessageType.Error => "error",
+            MessageType.Request => "request",
+            _ => "",
+        };
+    }
+}
