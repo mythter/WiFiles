@@ -1,7 +1,8 @@
 ﻿.file {
     display: flex;
     align-items: center;
-    background-color: #43496a;
+    --bg-color: #43496a;
+    background-color: var(--bg-color);
     border-radius: 5px;
     color: #fff;
     padding: 8px;
@@ -35,7 +36,7 @@
             position: absolute;
             pointer-events: none;
             width: 100%;
-            background-image: linear-gradient(90deg, #43496a 0px, transparent 8px, transparent calc(100% - 8px), #43496a 100%);
+            background-image: linear-gradient(90deg, var(--bg-color) 0px, transparent 8px, transparent calc(100% - 8px), var(--bg-color) 100%);
             height: 100%;
             left: 0;
             top: 0;
@@ -50,6 +51,10 @@
         color: #bbb;
         width: max-content;
     }
+
+.selected {
+    --bg-color: #5d6594;
+}
 
 .running-text {
     animation: moving infinite linear alternate;

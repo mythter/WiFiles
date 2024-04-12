@@ -10,10 +10,8 @@
         this.SetAnimation(name, container, speed, delay);
 
         new ResizeObserver(() => {
-            let containerWidth = this.GetContainerWidth(container);
-            document.documentElement.style.setProperty("--info-width", containerWidth + "px");
-            this.CheckAnimation(path, containerWidth, speed);
-            this.CheckAnimation(name, containerWidth, speed);
+            this.ResetAnimation(path, container, speed);
+            this.ResetAnimation(name, container, speed);
         }).observe(container);
     }
 
@@ -40,6 +38,12 @@
                 elem.style["animation-play-state"] = "running";
             }, delay);
         });
+    }
+
+    static ResetAnimation(elem, container, speed) {
+        let containerWidth = this.GetContainerWidth(container);
+        document.documentElement.style.setProperty("--info-width", containerWidth + "px");
+        this.CheckAnimation(elem, containerWidth, speed);
     }
 
     static SetAnimationDuration(elem, containerWidth, speed) {

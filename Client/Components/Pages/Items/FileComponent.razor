@@ -1,7 +1,11 @@
 ﻿@inject IJSRuntime js
 @implements IDisposable
 
-<div class="file">
+@{
+    string isSelected = IsSelected ? "selected" : "";
+}
+
+<div class="file @isSelected" @onclick="OnClickHandler">
     <div class="icon">
         @((MarkupString)GetFileIcon())
         @if (File.Progress is not null)
@@ -22,6 +26,11 @@
 @code {
     [Parameter]
     public FileModel File { get; set; }
+
+    [Parameter]
+    public EventCallback<FileModel> OnClick { get; set; }
+
+    public bool IsSelected { get; set; }
 
     public long Progress { get; set; }
 
@@ -72,6 +81,15 @@
         {
             Progress = percent;
             InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task OnClickHandler()
+    {
+        if (OnClick.HasDelegate)
+        {
+            IsSelected = !IsSelected;
+            await OnClick.InvokeAsync(File);
         }
     }
 

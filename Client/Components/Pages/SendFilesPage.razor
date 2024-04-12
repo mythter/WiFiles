@@ -3,9 +3,15 @@
 @inject IStorageService storageService
 
 <header class="header">
-    <BadgeButton Class="right" OnClick="@PickFiles">
+    <BadgeButton OnClick="@PickFiles">
         <i class="ph ph-plus"></i>
     </BadgeButton>
+    @if (SelectedFiles.Count > 0)
+    {
+        <BadgeButton OnClick="@RemoveFiles">
+            <i class="ph ph-trash"></i>
+        </BadgeButton>
+    }
     <BadgeButton Class="transparent left" OnClick="@(() => NavigationService.NavigateBack())">
         <i class="ph ph-arrow-left"></i>
     </BadgeButton>
@@ -14,13 +20,15 @@
 <div class="files">
     @foreach (FileModel file in SendFiles)
     {
-        <FileComponent File="@file"></FileComponent>
+        <FileComponent @key="@file" File="@file" OnClick="OnFileClick"></FileComponent>
     }
 </div>
 
 @code {
     [CascadingParameter(Name = "SendFiles")]
     public List<FileModel> SendFiles { get; set; }
+
+    public List<FileModel> SelectedFiles { get; set; } = new();
 
     private async Task PickFiles()
     {
@@ -34,6 +42,28 @@
                 FileModel file = new FileModel(filePath, fileSize);
                 SendFiles.Add(file);
             }
+        }
+    }
+
+    private void RemoveFiles()
+    {
+        foreach (FileModel f in SelectedFiles)
+        {
+            SendFiles.Remove(f);
+        }
+
+        SelectedFiles.Clear();
+    }
+
+    private void OnFileClick(FileModel file)
+    {
+        if (SelectedFiles.Contains(file))
+        {
+            SelectedFiles.Remove(file);
+        }
+        else
+        {
+            SelectedFiles.Add(file);
         }
     }
 }
