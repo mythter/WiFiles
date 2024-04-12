@@ -71,6 +71,7 @@
     </div>
 </div>
 
+<MessageBox @ref="MessageBoxElement"></MessageBox>
 
 @code {
     public List<IPAddress> IPs { get; set; } = new();
@@ -97,6 +98,8 @@
     public string? SaveFolder { get; set; }
 
     IJSObjectReference jsModule = null!;
+
+    private MessageBox MessageBoxElement = null!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -253,22 +256,50 @@
 
     private async Task StartListening()
     {
-        await TransferService.StartListeningAsync();
+        try
+        {
+            await TransferService.StartListeningAsync();
+        }
+        catch (Exception ex)
+        {
+            MessageBoxElement.ShowError(ex.Message);
+        }
     }
 
     private async Task StopListening()
     {
-        await TransferService.StopListeningAsync();
+        try
+        {
+            await TransferService.StopListeningAsync();
+        }
+        catch (Exception ex)
+        {
+            MessageBoxElement.ShowError(ex.Message);
+        }
     }
 
     private async Task StartSending(IPAddress ip)
     {
-        await TransferService.StartSendingAsync(ip, SendFiles);
+        try
+        {
+            await TransferService.StartSendingAsync(ip, SendFiles);
+        }
+        catch (Exception ex)
+        {
+            MessageBoxElement.ShowError(ex.Message);
+        }
     }
 
     private void StopSending()
     {
-        TransferService.StopSending();
+        try
+        {
+            TransferService.StopSending();
+        }
+        catch (Exception ex)
+        {
+            MessageBoxElement.ShowError(ex.Message);
+        }
     }
 
     private void ListeningStarted(object? sender, EventArgs e)
