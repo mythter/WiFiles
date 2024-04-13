@@ -1,4 +1,5 @@
-﻿@inherits LayoutComponentBase
+﻿@using System.Net
+@inherits LayoutComponentBase
 @inject NavigationService NavigationService
 @inject IStorageService StorageService
 @inject LocalTransferService TransferService
@@ -11,7 +12,7 @@
                     <main class="main">
                         @Body
                     </main>
-                    @*             <div class="menu">
+                    @* <div class="menu">
                     <div class="item">
                     Local
                     </div>
@@ -25,6 +26,8 @@
     </CascadingValue>
 </CascadingValue>
 
+<MessageBox @ref="MessageBoxElement"></MessageBox>
+
 @code {
     public List<FileModel> SendFiles { get; set; } = new();
 
@@ -34,15 +37,26 @@
 
     public EventCallback<string> SetFolder { get; set; }
 
+    private MessageBox MessageBoxElement = null!;
+
     protected override async Task OnInitializedAsync()
     {
-        TransferService.StartReceivingFile += ReceiveFile;
+        TransferService.OnSendFilesRequestReceived = ShowRequest;
+
+        TransferService.ReceivingFileStarted += ReceiveFile;
 
         SaveFolder = StorageService.GetDefaultFolder();
         TransferService.SaveFolder = SaveFolder;
 
         SetFolder = EventCallback.Factory.Create<string>(this, OnSetFolder);
         NavigationService.NavigateTo("local");
+    }
+
+    private Task<bool> ShowRequest(IPAddress? sender, int filesCount)
+    {
+        return MessageBoxElement.ShowRequest(
+            $"Sender with IP {sender} wants to send you {filesCount} file(s). Accept the request?",
+             "Request to send files");
     }
 
     private void OnSetFolder(string path)
