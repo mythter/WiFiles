@@ -20,6 +20,10 @@
         font-size: 14px;
     }
 
+    .file .status {
+        font-size: 14px;
+    }
+
     .file .info {
         overflow: hidden;
         position: relative;

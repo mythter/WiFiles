@@ -8,7 +8,11 @@
 <div class="file @isSelected" @onclick="OnClickHandler">
     <div class="icon">
         @((MarkupString)GetFileIcon())
-        @if (File.Progress is not null)
+        @if (!string.IsNullOrEmpty(Status))
+        {
+            <div class="status"> @Status </div>
+        }
+        else if (File.Progress is not null)
         {
             <div class="progress"> @($"{Progress}%") </div>
         }
@@ -34,6 +38,8 @@
 
     public long Progress { get; set; }
 
+    public string? Status { get; set; }
+
     IJSObjectReference jsModule = null!;
 
     ElementReference ElementName;
@@ -50,20 +56,13 @@
         if (!System.IO.File.Exists(File?.Path))
         {
             Progress = -1;
+            Status = "Deleted";
         }
         else if (File is not null && new FileInfo(File.Path).Length == File.Size)
         {
             Progress = 100;
         }
     }
-
-    // protected override void OnParametersSet()
-    // {
-    //     if (File?.Progress is not null)
-    //     {
-    //         File.Progress.ProgressChanged += OnProgressChanged;
-    //     }
-    // }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -93,7 +92,7 @@
         }
     }
 
-    string GetFileIcon()
+    private string GetFileIcon()
     {
         // useful repository with file extensions
         // https://github.com/dyne/file-extension-list
