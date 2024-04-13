@@ -28,7 +28,7 @@ namespace Client.Services
         public event EventHandler? ListeningStarted;
         public event EventHandler? ListeningStopped;
 
-        public Func<IPAddress?, int, Task<bool>>? OnSendFilesRequestReceived { get; set; }
+        public Func<IPAddress?, int, Task<bool>>? OnSendFilesRequest { get; set; }
 
         public string ExceptionMessage { get; private set; }
 
@@ -212,13 +212,13 @@ namespace Client.Services
             IPAddress? sender = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address;
 
             string response;
-            if (OnSendFilesRequestReceived is null)
+            if (OnSendFilesRequest is null)
             {
                 response = "Declined";
             }
             else
             {
-                bool isAccepted = await OnSendFilesRequestReceived.Invoke(sender, fileCount);
+                bool isAccepted = await OnSendFilesRequest.Invoke(sender, fileCount);
                 response = isAccepted ? "Accepted" : "Declined";
             }
 

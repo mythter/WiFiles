@@ -41,7 +41,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        TransferService.OnSendFilesRequestReceived = ShowRequest;
+        TransferService.OnSendFilesRequest = ShowRequest;
 
         TransferService.ReceivingFileStarted += ReceiveFile;
 
