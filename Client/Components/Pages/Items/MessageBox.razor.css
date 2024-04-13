@@ -4,6 +4,8 @@
     height: 100%;
     backdrop-filter: blur(10px);
     opacity: 0;
+    top: 0;
+    left: 0;
 }
 
 .message {
@@ -49,7 +51,7 @@
 
     .message .buttons {
         display: flex;
-        justify-content: center;
+        justify-content: space-evenly;
     }
 
 .button {

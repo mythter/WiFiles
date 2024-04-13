@@ -22,10 +22,10 @@
         <div class="buttons">
             @if (ButtonsCount == 2)
             {
-                <div class="button">
+                <div class="button" @onclick="@(() => OnClickResult(true))">
                     Yes
                 </div>
-                <div class="button">
+                <div class="button" @onclick="@(() => OnClickResult(false))">
                     No
                 </div>
             }
@@ -52,15 +52,14 @@
     public string? Message { get; set; }
 
     [Parameter]
-    public EventCallback? ResultCallback { get; set; }
-
-    [Parameter]
     public bool IsVisible { get; set; }
 
     [Parameter]
     public int ButtonsCount { get; set; } = 1;
 
     ElementReference ElementContainer;
+
+    private TaskCompletionSource<bool>? taskCompletionSource;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -71,13 +70,14 @@
         }
     }
 
-    public void Show(MessageType type, string title, string message)
+    public void Show(MessageType type, string title, string message, int buttonsCount = 1)
     {
         Title = title;
         Message = message;
         Type = type;
+        ButtonsCount = buttonsCount;
         IsVisible = true;
-        StateHasChanged();
+        InvokeAsync(StateHasChanged);
     }
 
     public void ShowInfo(string text, string title = "Information")
@@ -95,8 +95,23 @@
         Show(MessageType.Error, title, text);
     }
 
+    public Task<bool> ShowRequest(string text, string title = "Request")
+    {
+        taskCompletionSource = new TaskCompletionSource<bool>();
+        Show(MessageType.Request, title, text, 2);
+        return taskCompletionSource.Task;
+    }
+
+    private void OnClickResult(bool result)
+    {
+        taskCompletionSource?.SetResult(result);
+        taskCompletionSource = null;
+        Close();
+    }
+
     private void Close()
     {
+        taskCompletionSource?.SetResult(false);
         IsVisible = false;
         StateHasChanged();
     }
