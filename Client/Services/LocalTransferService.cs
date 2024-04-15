@@ -211,18 +211,7 @@ namespace Client.Services
             stream.Read(fileCountBytes, 0, 4);
             int fileCount = BitConverter.ToInt32(fileCountBytes, 0);
 
-            IPAddress? sender = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address;
-
-            string response;
-            if (OnSendFilesRequest is null)
-            {
-                response = "Declined";
-            }
-            else
-            {
-                bool isAccepted = await OnSendFilesRequest.Invoke(sender, fileCount);
-                response = isAccepted ? "Accepted" : "Declined";
-            }
+            string response = await GetUserResponseAsync(tcpClient, fileCount);
 
             byte[] data = Encoding.UTF8.GetBytes(response + '\n');
             await stream.WriteAsync(data);
@@ -251,16 +240,7 @@ namespace Client.Services
 
                 long fileSize = await ReceiveFileSize(stream);
 
-                string extension = Path.GetExtension(fileName);
-                string tempName = Path.GetFileNameWithoutExtension(fileName);
-                string filePath = Path.Combine(SaveFolder, fileName);
-                int n = 1;
-                while (File.Exists(filePath))
-                {
-                    fileName = $"{tempName} ({n}){extension}";
-                    filePath = Path.Combine(SaveFolder, fileName);
-                    n++;
-                }
+                string filePath = GetUniqueFilePath(fileName);
 
                 try
                 {
@@ -323,6 +303,40 @@ namespace Client.Services
             byte[] fileSizeBytes = new byte[8];
             await stream.ReadAsync(fileSizeBytes.AsMemory(0, 8));
             return BitConverter.ToInt32(fileSizeBytes, 0);
+        }
+
+        private string GetUniqueFilePath(string fileName)
+        {
+            string extension = Path.GetExtension(fileName);
+            string tempName = Path.GetFileNameWithoutExtension(fileName);
+            string filePath = Path.Combine(SaveFolder, fileName);
+            int n = 1;
+            while (File.Exists(filePath))
+            {
+                fileName = $"{tempName} ({n}){extension}";
+                filePath = Path.Combine(SaveFolder, fileName);
+                n++;
+            }
+
+            return filePath;
+        }
+
+        private async Task<string> GetUserResponseAsync(TcpClient tcpClient, int fileCount)
+        {
+            IPAddress? sender = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address;
+
+            string response;
+            if (OnSendFilesRequest is null)
+            {
+                response = "Declined";
+            }
+            else
+            {
+                bool isAccepted = await OnSendFilesRequest.Invoke(sender, fileCount);
+                response = isAccepted ? "Accepted" : "Declined";
+            }
+
+            return response;
         }
 
         private void RequestReadAccess()
