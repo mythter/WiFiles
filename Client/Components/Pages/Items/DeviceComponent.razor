@@ -1,12 +1,37 @@
 ﻿@using System.Net
 @inject IJSRuntime js
+@inject LocalTransferService TransferService
+
+@{
+    var sendBtnClass = IsSendBtnVisible ? "" : "hidden";
+}
 
 
-<div class="device" @ref="ElementDevice" tabindex="0">
+<div class="device" @ref="ElementDevice" tabindex="0"
+     @onclick="@(() => {
+        if(TransferService.ReceiverIp is null ||
+           !TransferService.ReceiverIp.Equals(Ip))
+            IsSendBtnVisible = true;
+     })"
+     @onfocusout="@(() => IsSendBtnVisible = false)">
+
     <div class="device-info">
         @Ip?.ToString()
     </div>
-    <div class="send-btn hidden" @ref="ElementSendBtn" @onclick="@(() => SendCallback.InvokeAsync(Ip))">
+
+    @if (TransferService.ReceiverIp is not null &&
+         TransferService.ReceiverIp.Equals(Ip))
+    {
+        <div class="cancel-btn" @onclick="TransferService.StopSending">
+            <i class="ph ph-x-circle"></i>
+        </div>
+    }
+
+    <div class="send-btn @sendBtnClass" @ref="ElementSendBtn"
+         @onclick="@(() => {
+            IsSendBtnVisible = false;
+            SendCallback.InvokeAsync(Ip);
+        })">
         <i class="ph ph-arrow-fat-line-right"></i>
     </div>
 </div>
@@ -23,12 +48,14 @@
 
     IJSObjectReference jsModule = null!;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/DeviceComponent.razor.js");
-            await jsModule.InvokeVoidAsync("Device.Init", ElementDevice, ElementSendBtn);
-        }
-    }
+    public bool IsSendBtnVisible { get; set; }
+
+    // protected override async Task OnAfterRenderAsync(bool firstRender)
+    // {
+    //     if (firstRender)
+    //     {
+    //         jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/DeviceComponent.razor.js");
+    //         await jsModule.InvokeVoidAsync("Device.Init", ElementDevice, ElementSendBtn);
+    //     }
+    // }
 }
