@@ -70,10 +70,17 @@ namespace Client.Services
                 int bytesRead;
                 await Task.Run(() =>
                 {
-                    while ((bytesRead = stream.ReadByte()) != '\n' && bytesRead != -1)
+                    try
                     {
-                        responseList.Add((byte)bytesRead);
+                        while ((bytesRead = stream.ReadByte()) != '\n' && bytesRead != -1)
+                        {
+                            responseList.Add((byte)bytesRead);
+                        }
                     }
+                    catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException)
+                    {
+                        throw new OperationCanceledException();
+                    } 
                 });
                 string response = Encoding.UTF8.GetString(responseList.ToArray());
 
