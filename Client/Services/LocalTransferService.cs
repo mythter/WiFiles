@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using Client.Extensions;
 
 namespace Client.Services
 {
@@ -124,24 +125,31 @@ namespace Client.Services
         private async Task SendFiles(List<FileModel> files, NetworkStream stream)
         {
             byte[] buffer;
-            foreach (FileModel file in files)
+            try
             {
-                await SendFileName(file, stream);
-
-                await SendFileSize(file, stream);
-
-                using FileStream fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
-                long size = fs.Length < BufferSize ? fs.Length : BufferSize;
-                buffer = new byte[size];
-                int bytesRead;
-                while ((bytesRead = await fs.ReadAsync(buffer)) > 0)
+                foreach (FileModel file in files)
                 {
-                    if (bytesRead < buffer.Length)
+                    await SendFileName(file, stream);
+
+                    await SendFileSize(file, stream);
+
+                    using FileStream fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
+                    long size = fs.Length < BufferSize ? fs.Length : BufferSize;
+                    buffer = new byte[size];
+                    int bytesRead;
+                    while ((bytesRead = await fs.ReadAsync(buffer)) > 0)
                     {
-                        Array.Resize(ref buffer, bytesRead);
+                        if (bytesRead < buffer.Length)
+                        {
+                            Array.Resize(ref buffer, bytesRead);
+                        }
+                        await stream.WriteAsync(buffer);
                     }
-                    await stream.WriteAsync(buffer);
                 }
+            }
+            catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException)
+            {
+                throw new OperationCanceledException(ex.Message, ex);
             }
         }
 
@@ -209,7 +217,6 @@ namespace Client.Services
         private async Task ProcessClientAsync(TcpClient tcpClient)
         {
             NetworkStream stream = tcpClient.GetStream();
-            byte[] buffer;
 
             // Получаем количество файлов
             byte[] fileCountBytes = new byte[4];
@@ -237,7 +244,7 @@ namespace Client.Services
                 string fileName = ReceiveFileName(stream);
 
                 // check for the end of the stream
-                if(string.IsNullOrEmpty(fileName))
+                if (string.IsNullOrEmpty(fileName))
                 {
                     // TODO: maybe add Exception that error occurred on the sender side
                     return;
@@ -259,21 +266,17 @@ namespace Client.Services
                         };
                         ReceivingFileStarted?.Invoke(this, file);
                         long sentSize = 0;
-                        //object locker = new object();
+                        byte[] buffer;
+                        int timeout = 5000;
                         while (sentSize < fileSize)
                         {
                             buffer = new byte[BufferSize < fileSize - sentSize ? BufferSize : fileSize - sentSize];
-                            int size = await stream.ReadAsync(buffer);
+                            int size = await stream.ReadWithTimeoutAsync(buffer, timeout);
                             if (size == 0)
                             {
-                                // client has disconnected
-                                break;
+                                throw new OperationCanceledException("Sender canceled the operation or was disconnected");
                             }
                             await fs.WriteAsync(buffer.AsMemory(0, size));
-                            //lock (locker)
-                            //{
-
-                            //}
                             sentSize += size;
                             progress.Report(sentSize);
                         }
@@ -295,7 +298,6 @@ namespace Client.Services
         {
             var fileNameList = new List<byte>();
             int bytesRead;
-            // Получаем имя файла
             while ((bytesRead = stream.ReadByte()) != '\n' && bytesRead != -1)
             {
                 fileNameList.Add((byte)bytesRead);
