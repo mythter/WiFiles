@@ -71,8 +71,6 @@
     </div>
 </div>
 
-<MessageBox @ref="MessageBoxElement"></MessageBox>
-
 @code {
     public List<IPAddress> IPs { get; set; } = new();
 
@@ -99,7 +97,8 @@
 
     IJSObjectReference jsModule = null!;
 
-    private MessageBox MessageBoxElement = null!;
+    [CascadingParameter(Name = "MessageBox")]
+    private MessageBox MessageBoxElement { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -256,50 +255,27 @@
 
     private async Task StartListening()
     {
-        try
-        {
-            await TransferService.StartListeningAsync();
-        }
-        catch (Exception ex)
-        {
-            MessageBoxElement.ShowError(ex.Message);
-        }
+        await TransferService.StartListeningAsync();
     }
 
     private async Task StopListening()
     {
-        try
-        {
-            await TransferService.StopListeningAsync();
-        }
-        catch (Exception ex)
-        {
-            MessageBoxElement.ShowError(ex.Message);
-        }
+        await TransferService.StopListeningAsync();
     }
 
     private async Task StartSending(IPAddress ip)
     {
-        try
+        if (SendFiles.Count == 0)
         {
-            await TransferService.StartSendingAsync(ip, SendFiles);
+            MessageBoxElement.ShowWarning("You have no files to send.");
         }
-        catch (Exception ex)
-        {
-            MessageBoxElement.ShowError(ex.Message);
-        }
+
+        await TransferService.StartSendingAsync(ip, SendFiles);
     }
 
     private void StopSending()
     {
-        try
-        {
-            TransferService.StopSending();
-        }
-        catch (Exception ex)
-        {
-            MessageBoxElement.ShowError(ex.Message);
-        }
+        TransferService.StopSending();
     }
 
     private void ListeningStarted(object? sender, EventArgs e)
