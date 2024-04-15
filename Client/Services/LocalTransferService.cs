@@ -22,6 +22,8 @@ namespace Client.Services
 
         public string? SaveFolder { get; set; }
 
+        public IPAddress? ReceiverIp { get; private set; }
+
         public bool IsListening { get; private set; }
 
         public event EventHandler<FileModel>? ReceivingFileStarted;
@@ -43,6 +45,8 @@ namespace Client.Services
         {
             if (files is null || files.Count == 0)
                 return;
+
+            ReceiverIp = ip;
 
             try
             {
@@ -105,6 +109,7 @@ namespace Client.Services
         {
             ClientTokenSource?.Cancel();
             ClientTokenSource = null;
+            ReceiverIp = null;
             TcpClient.Close();
             TcpClient = new TcpClient();
         }
