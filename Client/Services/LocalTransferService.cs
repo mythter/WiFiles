@@ -25,6 +25,7 @@ namespace Client.Services
         public bool IsListening { get; private set; }
 
         public event EventHandler<FileModel>? ReceivingFileStarted;
+        public event EventHandler<string>? ExceptionHandled;
         public event EventHandler? ListeningStarted;
         public event EventHandler? ListeningStopped;
 
@@ -85,14 +86,14 @@ namespace Client.Services
             }
             catch (SocketException ex)
             {
-                throw;
+                ExceptionHandled?.Invoke(this, ex.Message);
             }
             catch (OperationCanceledException ex)
             {
             }
             catch (Exception ex)
             {
-                throw;
+                ExceptionHandled?.Invoke(this, ex.Message);
             }
             finally
             {
@@ -171,14 +172,15 @@ namespace Client.Services
             }
             catch (SocketException ex)
             {
-                throw;
+                ExceptionHandled?.Invoke(this, ex.Message);
+
             }
             catch (OperationCanceledException ex)
             {
             }
             catch (Exception ex)
             {
-                throw;
+                ExceptionHandled?.Invoke(this, ex.Message);
             }
             finally
             {
@@ -299,7 +301,7 @@ namespace Client.Services
                         File.Delete(filePath);
                     }
 
-                    throw;
+                    ExceptionHandled?.Invoke(this, ex.Message);
                 }
             }
         }
