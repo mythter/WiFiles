@@ -1,23 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Net.Sockets;
 
 namespace Client.Extensions
 {
     public static class NetworkStreamExtensions
     {
-        public static async ValueTask<int> ReadWithTimeoutAsync(this NetworkStream stream, byte[] buffer, int timeout)
+        public static async ValueTask<int> ReadWithTimeoutAsync(
+            this NetworkStream stream, 
+            byte[] buffer, 
+            int timeout, 
+            CancellationToken cancellationToken)
         {
-            Task<int> result = stream.ReadAsync(buffer, 0 ,buffer.Length);
+            Task<int> result = stream.ReadAsync(buffer, 0 ,buffer.Length, cancellationToken);
 
-            await Task.WhenAny(result, Task.Delay(timeout));
+            await Task.WhenAny(result, Task.Delay(timeout, cancellationToken));
 
             if (!result.IsCompleted)
             {
-                stream.Close();
+                //stream.Close();
                 throw new OperationCanceledException("Sender was disconnected.");
             }
 
