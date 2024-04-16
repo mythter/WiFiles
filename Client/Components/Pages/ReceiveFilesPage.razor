@@ -6,10 +6,16 @@
 @inject IJSRuntime js
 
 <header class="header">
-    <BadgeButton Class="right" OnClick="@PickFolder">
+    <BadgeButton OnClick="@PickFolder">
         <i class="ph ph-folder-notch"></i>
     </BadgeButton>
-    <BadgeButton Class="transparent left" OnClick="@(() => NavigationService.NavigateBack())">
+    @if (TransferService.IsReceiving)
+    {
+        <BadgeButton OnClick="@TransferService.StopReceiving">
+            <i class="ph ph-x"></i>
+        </BadgeButton>
+    }
+    <BadgeButton Class="transparent left" OnClick="@NavigationService.NavigateBack">
         <i class="ph ph-arrow-left"></i>
     </BadgeButton>
 </header>
@@ -21,7 +27,7 @@
         </div>
     </div>
     <div class="files">
-        @foreach(var file in ReceivedFiles)
+        @foreach (var file in ReceivedFiles)
         {
             <FileComponent File="@file"></FileComponent>
         }
@@ -55,7 +61,7 @@
     protected override async Task OnParametersSetAsync()
     {
         // await InvokeAsync(StateHasChanged);
-        if(jsModule is not null)
+        if (jsModule is not null)
         {
             await jsModule.InvokeVoidAsync("ReceiveFilesPage.FolderChanged", ElementFolderContainer, ElementFolder);
         }
