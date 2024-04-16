@@ -45,7 +45,8 @@
     {
         TransferService.OnSendFilesRequest = ShowRequest;
 
-        TransferService.ReceivingFileStarted += ReceiveFile;
+        TransferService.ReceivingFileStarted += AddReceivingFile;
+        TransferService.ReceivingFileFailed += RemoveReceivingFile;
         TransferService.ExceptionHandled += ShowError;
 
         SaveFolder = StorageService.GetDefaultFolder();
@@ -73,9 +74,21 @@
         TransferService.SaveFolder = path;
     }
 
-    private void ReceiveFile(object? sender, FileModel file)
+    private void AddReceivingFile(object? sender, FileModel file)
     {
         ReceivedFiles.Add(file);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void RemoveReceivingFile(object? sender, string filePath)
+    {
+        for (int i = 0; i < ReceivedFiles.Count; i++)
+        {
+            if (ReceivedFiles[i].Path == filePath)
+            {
+                ReceivedFiles.Remove(ReceivedFiles[i]);
+            }
+        }
         InvokeAsync(StateHasChanged);
     }
 }
