@@ -10,14 +10,14 @@ namespace Client.Services
 
     public class LocalTransferService
     {
-        public TcpListener TcpListener { get; set; }
-        public TcpClient TcpClient { get; set; }
+        private TcpListener TcpListener { get; set; }
+        private TcpClient TcpClient { get; set; }
 
         public int PortListen { get; set; } = 8887;
         public int PortConnect { get; set; } = 8887;
 
-        private CancellationTokenSource? ListenerTokenSource { get; set; }
-        private CancellationTokenSource? ClientTokenSource { get; set; }
+        public bool IsListening { get; private set; }
+        public bool IsReceiving { get; private set; }
 
         public int BufferSize { get; set; } = 1024;
 
@@ -25,14 +25,17 @@ namespace Client.Services
 
         public IPAddress? ReceiverIp { get; private set; }
 
-        public bool IsListening { get; private set; }
-
         public event EventHandler<FileModel>? ReceivingFileStarted;
+        public event EventHandler<string>? ReceivingFileFailed;
         public event EventHandler<string>? ExceptionHandled;
         public event EventHandler? ListeningStarted;
         public event EventHandler? ListeningStopped;
 
         public Func<IPAddress?, int, Task<bool>>? OnSendFilesRequest { get; set; }
+
+        private CancellationTokenSource? ListenerTokenSource { get; set; }
+        private CancellationTokenSource? ClientTokenSource { get; set; }
+        private CancellationTokenSource? ReceivingTokenSource { get; set; }
 
         public string ExceptionMessage { get; private set; }
 
@@ -60,40 +63,19 @@ namespace Client.Services
                 //TcpClient.ReceiveTimeout = 60_000;
                 ClientTokenSource = new CancellationTokenSource();
                 await TcpClient.ConnectAsync(ip, PortConnect, ClientTokenSource.Token);
-                ClientTokenSource = null;
                 NetworkStream stream = TcpClient.GetStream();
 
-                // Отправляем количество файлов
-                await SendFilesCount(files, stream);
+                await SendFilesCount(files, stream, ClientTokenSource.Token);
 
-                var responseList = new List<byte>();
-                int bytesRead;
-                await Task.Run(() =>
-                {
-                    try
-                    {
-                        while ((bytesRead = stream.ReadByte()) != '\n' && bytesRead != -1)
-                        {
-                            responseList.Add((byte)bytesRead);
-                        }
-                    }
-                    catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException)
-                    {
-                        throw new OperationCanceledException();
-                    } 
-                });
-                string response = Encoding.UTF8.GetString(responseList.ToArray());
+                // waiting for the response from receiver
+                string? response = await ReceiveLineAsync(stream, ClientTokenSource.Token);
 
                 if (response == "Accepted")
                 {
 #if ANDROID
                     RequestReadAccess();
 #endif
-                    await SendFiles(files, stream);
-                }
-                else
-                {
-                    StopSending();
+                    await SendFiles(files, stream, ClientTokenSource.Token);
                 }
             }
             catch (SocketException ex)
@@ -109,7 +91,11 @@ namespace Client.Services
             }
             finally
             {
-                StopSending();
+                ClientTokenSource = null;
+                ReceiverIp = null;
+                TcpClient.Close();
+                TcpClient = new TcpClient();
+                //StopSending();
             }
         }
 
@@ -118,60 +104,60 @@ namespace Client.Services
             ClientTokenSource?.Cancel();
             ClientTokenSource = null;
             ReceiverIp = null;
-            TcpClient.Close();
-            TcpClient = new TcpClient();
+            //TcpClient.Close();
+            //TcpClient = new TcpClient();
         }
 
-        private async Task SendFilesCount(List<FileModel> files, NetworkStream stream)
+        private async Task SendFilesCount(List<FileModel> files, NetworkStream stream, CancellationToken cancellationToken)
         {
             int fileCount = files.Count;
             byte[] fileCountBytes = BitConverter.GetBytes(fileCount);
-            await stream.WriteAsync(fileCountBytes.AsMemory(0, 4));
+            await stream.WriteAsync(fileCountBytes.AsMemory(0, 4), cancellationToken);
         }
 
-        private async Task SendFiles(List<FileModel> files, NetworkStream stream)
+        private async Task SendFiles(List<FileModel> files, NetworkStream stream, CancellationToken cancellationToken)
         {
             byte[] buffer;
-            try
+            //try
+            //{
+            foreach (FileModel file in files)
             {
-                foreach (FileModel file in files)
+                await SendFileName(file, stream, cancellationToken);
+
+                await SendFileSize(file, stream, cancellationToken);
+
+                using FileStream fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
+                long size = fs.Length < BufferSize ? fs.Length : BufferSize;
+                buffer = new byte[size];
+                int bytesRead;
+                while ((bytesRead = await fs.ReadAsync(buffer)) > 0)
                 {
-                    await SendFileName(file, stream);
-
-                    await SendFileSize(file, stream);
-
-                    using FileStream fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
-                    long size = fs.Length < BufferSize ? fs.Length : BufferSize;
-                    buffer = new byte[size];
-                    int bytesRead;
-                    while ((bytesRead = await fs.ReadAsync(buffer)) > 0)
+                    if (bytesRead < buffer.Length)
                     {
-                        if (bytesRead < buffer.Length)
-                        {
-                            Array.Resize(ref buffer, bytesRead);
-                        }
-                        await stream.WriteAsync(buffer);
+                        Array.Resize(ref buffer, bytesRead);
                     }
+                    await stream.WriteAsync(buffer, cancellationToken);
                 }
             }
-            catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException)
-            {
-                throw new OperationCanceledException(ex.Message, ex);
-            }
+            //}
+            //catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException)
+            //{
+            //    throw new OperationCanceledException(ex.Message, ex);
+            //}
         }
 
-        private async Task SendFileName(FileModel file, NetworkStream stream)
+        private async Task SendFileName(FileModel file, NetworkStream stream, CancellationToken cancellationToken)
         {
             string fileName = Path.GetFileName(file.Path);
             byte[] data = Encoding.UTF8.GetBytes(fileName + '\n');
-            await stream.WriteAsync(data);
+            await stream.WriteAsync(data, cancellationToken);
         }
 
-        private async Task SendFileSize(FileModel file, NetworkStream stream)
+        private async Task SendFileSize(FileModel file, NetworkStream stream, CancellationToken cancellationToken)
         {
             long fileSize = new FileInfo(file.Path).Length;
             byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
-            await stream.WriteAsync(fileSizeBytes.AsMemory(0, 8));
+            await stream.WriteAsync(fileSizeBytes.AsMemory(0, 8), cancellationToken);
         }
 
         public async Task StartListeningAsync()
@@ -221,14 +207,18 @@ namespace Client.Services
             ListeningStopped?.Invoke(this, EventArgs.Empty);
         }
 
+        public void StopReceiving()
+        {
+            ReceivingTokenSource?.Cancel();
+            ReceivingTokenSource = null;
+            IsReceiving = false;
+        }
+
         private async Task ProcessClientAsync(TcpClient tcpClient)
         {
             NetworkStream stream = tcpClient.GetStream();
 
-            // Получаем количество файлов
-            byte[] fileCountBytes = new byte[4];
-            stream.Read(fileCountBytes, 0, 4);
-            int fileCount = BitConverter.ToInt32(fileCountBytes, 0);
+            int fileCount = await ReceiveFileCountAsync(stream);
 
             string response = await GetUserResponseAsync(tcpClient, fileCount);
 
@@ -237,7 +227,6 @@ namespace Client.Services
 
             if (response == "Declined")
             {
-                stream.Close();
                 tcpClient.Close();
                 return;
             }
@@ -245,78 +234,105 @@ namespace Client.Services
 #if ANDROID
             RequestWriteAccess();
 #endif
-
+            IsReceiving = true;
+            ReceivingTokenSource = new CancellationTokenSource();
             for (int i = 0; i < fileCount; i++)
             {
-                string fileName = ReceiveFileName(stream);
+                string? fileName = await ReceiveLineAsync(stream, ReceivingTokenSource.Token);
 
-                // check for the end of the stream
-                if (string.IsNullOrEmpty(fileName))
-                {
-                    // TODO: maybe add Exception that error occurred on the sender side
-                    return;
-                }
-
-                long fileSize = await ReceiveFileSize(stream);
+                long fileSize = await ReceiveFileSizeAsync(stream, ReceivingTokenSource.Token);
 
                 string filePath = GetUniqueFilePath(fileName);
 
                 try
                 {
-                    using (FileStream fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+                    await ReceiveFilesAsync(filePath, fileSize, tcpClient, ReceivingTokenSource.Token);
+                }
+                catch (OperationCanceledException ex)
+                {
+                    DeleteFileIfExists(filePath);
+
+                    if (ReceivingTokenSource is not null)
                     {
-                        IProgress<long> progress = new Progress<long>();
-                        FileModel file = new FileModel(filePath, fileSize)
+                        try
                         {
-                            Sender = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address,
-                            Progress = (Progress<long>)progress,
-                        };
-                        ReceivingFileStarted?.Invoke(this, file);
-                        long sentSize = 0;
-                        byte[] buffer;
-                        int timeout = 5000;
-                        while (sentSize < fileSize)
-                        {
-                            buffer = new byte[BufferSize < fileSize - sentSize ? BufferSize : fileSize - sentSize];
-                            int size = await stream.ReadWithTimeoutAsync(buffer, timeout);
-                            if (size == 0)
-                            {
-                                throw new OperationCanceledException("Sender canceled the operation or was disconnected");
-                            }
-                            await fs.WriteAsync(buffer.AsMemory(0, size));
-                            sentSize += size;
-                            progress.Report(sentSize);
+                            tcpClient.Client.Shutdown(SocketShutdown.Both);
                         }
+                        catch (Exception e)
+                        {
+
+                            throw;
+                        }
+                        ExceptionHandled?.Invoke(this, ex.Message);
+
                     }
                 }
                 catch (Exception ex)
                 {
-                    if (File.Exists(filePath))
-                    {
-                        File.Delete(filePath);
-                    }
-
+                    DeleteFileIfExists(filePath);
                     ExceptionHandled?.Invoke(this, ex.Message);
+                }
+                finally
+                {
+                    ReceivingTokenSource = null;
+                    IsReceiving = false;
+                    tcpClient.Close();
                 }
             }
         }
 
-        private string ReceiveFileName(NetworkStream stream)
+        private async Task ReceiveFilesAsync(string filePath, long fileSize, TcpClient tcpClient, CancellationToken cancellationToken)
         {
-            var fileNameList = new List<byte>();
-            int bytesRead;
-            while ((bytesRead = stream.ReadByte()) != '\n' && bytesRead != -1)
+            NetworkStream stream = tcpClient.GetStream();
+
+            using (FileStream fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
             {
-                fileNameList.Add((byte)bytesRead);
+                IProgress<long> progress = new Progress<long>();
+                FileModel file = new FileModel(filePath, fileSize)
+                {
+                    Sender = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address,
+                    Progress = (Progress<long>)progress,
+                };
+                ReceivingFileStarted?.Invoke(this, file);
+
+                long sentSize = 0;
+                byte[] buffer;
+                int timeout = 5000;
+                while (sentSize < fileSize)
+                {
+                    buffer = new byte[BufferSize < fileSize - sentSize ? BufferSize : fileSize - sentSize];
+                    int size = await stream.ReadWithTimeoutAsync(buffer, timeout, cancellationToken);
+                    //int size = await stream.ReadAsync(buffer, cancellationToken);
+                    if (size == 0)
+                    {
+                        throw new OperationCanceledException("Sender canceled the operation or was disconnected");
+                    }
+                    await fs.WriteAsync(buffer.AsMemory(0, size));
+                    sentSize += size;
+                    progress.Report(sentSize);
+                }
             }
-            return Encoding.UTF8.GetString(fileNameList.ToArray());
         }
 
-        private async Task<long> ReceiveFileSize(NetworkStream stream)
+        private async Task<string?> ReceiveLineAsync(NetworkStream stream, CancellationToken cancellationToken = default)
+        {
+            using StreamReader streamReader = new StreamReader(stream, leaveOpen: true);
+            string? line = await streamReader.ReadLineAsync(cancellationToken);
+            return line;
+        }
+
+        private async Task<long> ReceiveFileSizeAsync(NetworkStream stream, CancellationToken cancellationToken)
         {
             byte[] fileSizeBytes = new byte[8];
-            await stream.ReadAsync(fileSizeBytes.AsMemory(0, 8));
+            await stream.ReadAsync(fileSizeBytes.AsMemory(0, 8), cancellationToken);
             return BitConverter.ToInt32(fileSizeBytes, 0);
+        }
+
+        private async Task<int> ReceiveFileCountAsync(NetworkStream stream)
+        {
+            byte[] fileCountBytes = new byte[4];
+            await stream.ReadAsync(fileCountBytes.AsMemory(0, 4));
+            return BitConverter.ToInt32(fileCountBytes, 0);
         }
 
         private string GetUniqueFilePath(string fileName)
@@ -351,6 +367,15 @@ namespace Client.Services
             }
 
             return response;
+        }
+
+        private void DeleteFileIfExists(string filePath)
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+                ReceivingFileFailed?.Invoke(this, filePath);
+            }
         }
 
         private void RequestReadAccess()
