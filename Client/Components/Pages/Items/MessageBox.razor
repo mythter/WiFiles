@@ -5,7 +5,7 @@
 }
 
 <div class="message-container @isVisible" @onclick="Close" @ref="ElementContainer">
-    <div class="message">
+    <div class="message" @onclick:stopPropagation="true">
         <div class="title">
             <div class="title-icon @GetTitleClass()">
                 @((MarkupString)GetTitleIcon())
