@@ -348,7 +348,7 @@ namespace Client.Services
         {
             byte[] fileSizeBytes = new byte[8];
             await stream.ReadWithTimeoutAsync(fileSizeBytes, ReceiveTimeout, cancellationToken);
-            return BitConverter.ToInt32(fileSizeBytes, 0);
+            return BitConverter.ToInt64(fileSizeBytes, 0);
         }
 
         private async Task<int> ReceiveFileCountAsync(NetworkStream stream)
