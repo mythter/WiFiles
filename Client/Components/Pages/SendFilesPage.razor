@@ -22,6 +22,13 @@
     {
         <FileComponent @key="@file" File="@file" OnClick="OnFileClick"></FileComponent>
     }
+
+    @if (SendFiles.Count == 0)
+    {
+        <div class="message">
+            @("Select files you wand to send")
+</div>
+    }
 </div>
 
 @code {
