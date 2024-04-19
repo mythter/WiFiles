@@ -314,11 +314,23 @@ namespace Client.Services
             }
         }
 
-        private async Task<string?> ReceiveLineAsync(NetworkStream stream, CancellationToken cancellationToken = default)
+        private Task<string> ReceiveLineAsync(NetworkStream stream, CancellationToken cancellationToken = default)
         {
-            using StreamReader streamReader = new StreamReader(stream, leaveOpen: true);
-            string? line = await streamReader.ReadLineAsync(cancellationToken);
-            return line;
+            //using StreamReader streamReader = new StreamReader(stream, leaveOpen: true);
+            ////string? line = await streamReader.ReadLineAsync(cancellationToken);
+            //string? line = await streamReader.ReadLineWithTimeoutAsync(timeout, cancellationToken);
+            //return line;
+            return Task.Run(() =>
+            {
+                var fileNameList = new List<byte>();
+                int bytesRead;
+                while ((bytesRead = stream.ReadByte()) != '\n' && bytesRead != -1)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    fileNameList.Add((byte)bytesRead);
+                }
+                return Encoding.UTF8.GetString(fileNameList.ToArray());
+            });
         }
 
         private async Task<long> ReceiveFileSizeAsync(NetworkStream stream, CancellationToken cancellationToken)
