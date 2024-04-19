@@ -45,8 +45,12 @@
     {
         TransferService.OnSendFilesRequest = ShowRequest;
 
+        TransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
+
         TransferService.ReceivingFileStarted += AddReceivingFile;
         TransferService.ReceivingFileFailed += RemoveReceivingFile;
+        TransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
+
         TransferService.ExceptionHandled += ShowError;
 
         SaveFolder = StorageService.GetDefaultFolder();
@@ -66,6 +70,16 @@
     private void ShowError(object? sender, string message)
     {
         MessageBoxElement.ShowError(message);
+    }
+
+    private void OnReceivingFinishedSuccessfully(object? sender, EventArgs e)
+    {
+        MessageBoxElement.ShowInfo("All files received successfully.", "Receiving finished");
+    }
+
+    private void OnSendingFinishedSuccessfully(object? sender, EventArgs e)
+    {
+        MessageBoxElement.ShowInfo("All files sent successfully.", "Sending finished");
     }
 
     private void OnSetFolder(string path)
