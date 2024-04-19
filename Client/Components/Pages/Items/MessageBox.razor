@@ -82,17 +82,17 @@
 
     public void ShowInfo(string text, string title = "Information")
     {
-        Show(MessageType.Info, title, text);
+        Show(MessageType.Info, title, text, 1);
     }
 
     public void ShowWarning(string text, string title = "Warning")
     {
-        Show(MessageType.Warning, title, text);
+        Show(MessageType.Warning, title, text, 1);
     }
 
     public void ShowError(string text, string title = "Error occurred")
     {
-        Show(MessageType.Error, title, text);
+        Show(MessageType.Error, title, text, 1);
     }
 
     public Task<bool> ShowRequest(string text, string title = "Request")
@@ -104,16 +104,23 @@
 
     private void OnClickResult(bool result)
     {
-        taskCompletionSource?.SetResult(result);
-        taskCompletionSource = null;
+        SetResult(result);
         Close();
     }
 
     private void Close()
     {
-        taskCompletionSource?.SetResult(false);
+        if (taskCompletionSource is not null)
+            SetResult(false);
+
         IsVisible = false;
         StateHasChanged();
+    }
+
+    private void SetResult(bool result)
+    {
+        taskCompletionSource?.SetResult(result);
+        taskCompletionSource = null;
     }
 
     [JSInvokable]
