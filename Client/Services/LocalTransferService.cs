@@ -24,7 +24,7 @@ namespace Client.Services
         public int ReceiveTimeout { get; set; } = 15_000;
         public int SendTimeout { get; set; } = 15_000;
 
-        public string SaveFolder { get; set; }
+        public string SaveFolder { get; set; } = null!;
 
         public IPAddress? ReceiverIp { get; private set; }
 
@@ -198,7 +198,6 @@ namespace Client.Services
             catch (SocketException ex)
             {
                 ExceptionHandled?.Invoke(this, ex.Message);
-
             }
             catch (OperationCanceledException ex)
             {
@@ -321,7 +320,7 @@ namespace Client.Services
                 };
                 ReceivingFileStarted?.Invoke(this, file);
 
-                long sentSize = 0;
+                long receivedSize = 0;
                 byte[] buffer;
                 int bufferSize = GetBufferSizeByFileSize(file.Size);
                 while (receivedSize < fileSize)
@@ -333,8 +332,8 @@ namespace Client.Services
                         throw new OperationCanceledException("Sender cancelled the operation or disconnected.");
                     }
                     await fs.WriteAsync(buffer.AsMemory(0, size));
-                    sentSize += size;
-                    progress.Report(sentSize);
+                    receivedSize += size;
+                    progress.Report(receivedSize);
                 }
             }
         }
