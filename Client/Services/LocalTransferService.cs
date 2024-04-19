@@ -32,6 +32,9 @@ namespace Client.Services
         public event EventHandler<string>? ReceivingFileFailed;
 
         public event EventHandler? ReceivingStopped;
+        public event EventHandler? ReceivingFinishedSuccessfully;
+
+        public event EventHandler? SendingFinishedSuccessfully;
 
         public event EventHandler? ListeningStarted;
         public event EventHandler? ListeningStopped;
@@ -86,6 +89,8 @@ namespace Client.Services
                     RequestReadAccess();
 #endif
                     await SendFiles(files, stream, ClientTokenSource.Token);
+
+                    SendingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
                 }
             }
             catch (SocketException ex)
@@ -275,6 +280,8 @@ namespace Client.Services
 
                     await ReceiveFilesAsync(filePath, fileSize, tcpClient, ReceivingTokenSource.Token);
                 }
+
+                ReceivingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
             }
             catch (OperationCanceledException ex)
             {
