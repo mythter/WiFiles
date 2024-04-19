@@ -419,7 +419,7 @@ namespace Client.Services
             return response;
         }
 
-        private void DeleteFileIfExists(string filePath)
+        private void DeleteFileIfExists(string? filePath)
         {
             if (File.Exists(filePath))
             {
