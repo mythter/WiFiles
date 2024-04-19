@@ -64,10 +64,11 @@ namespace Client.Services
                 if (TcpClient.Connected)
                 {
                     StopSending();
+                    TcpClient.Close();
+                    TcpClient = new TcpClient();
                 }
 
-                //TcpClient.SendTimeout = 60_000;
-                //TcpClient.ReceiveTimeout = 60_000;
+                ReceiverIp = ip;
                 ClientTokenSource = new CancellationTokenSource();
                 await TcpClient.ConnectAsync(ip, PortConnect, ClientTokenSource.Token);
                 NetworkStream stream = TcpClient.GetStream();
