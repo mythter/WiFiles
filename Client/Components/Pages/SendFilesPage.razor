@@ -1,6 +1,8 @@
 ﻿@page "/sendfiles"
+@using System.Text
 @inject NavigationService NavigationService
-@inject IStorageService storageService
+@inject IStorageService StorageService
+@inject LocalTransferService TransferService
 
 <header class="header">
     <BadgeButton OnClick="@PickFiles">
@@ -12,7 +14,7 @@
             <i class="ph ph-trash"></i>
         </BadgeButton>
     }
-    <BadgeButton Class="transparent left" OnClick="@(() => NavigationService.NavigateBack())">
+    <BadgeButton Class="transparent left" OnClick="NavigationService.NavigateBack">
         <i class="ph ph-arrow-left"></i>
     </BadgeButton>
 </header>
@@ -27,7 +29,7 @@
     {
         <div class="message">
             @("Select files you wand to send")
-</div>
+        </div>
     }
 </div>
 
@@ -35,13 +37,29 @@
     [CascadingParameter(Name = "SendFiles")]
     public List<FileModel> SendFiles { get; set; }
 
+    [CascadingParameter(Name = "MessageBox")]
+    private MessageBox MessageBoxElement { get; set; }
+
     public List<FileModel> SelectedFiles { get; set; } = new();
 
     private async Task PickFiles()
     {
-        List<string> files = await storageService.PickFilesAsync();
+        if (TransferService.ReceiverIp is not null)
+        {
+            MessageBoxElement.ShowWarning("You can't add files to list while sending in progress.");
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        List<string> files = await StorageService.PickFilesAsync();
         foreach (var filePath in files)
         {
+            if (!StorageService.CheckIsFileReadable(filePath))
+            {
+                sb.AppendLine(filePath);
+                continue;
+            }
+
             if (!string.IsNullOrEmpty(filePath) &&
                 !SendFiles.Any(f => f.Path == filePath))
             {
@@ -50,10 +68,25 @@
                 SendFiles.Add(file);
             }
         }
+
+        if (sb.Length > 0)
+        {
+            MessageBoxElement.ShowError(
+                "Some files you selected are not currently supported for sending:\n" +
+                sb.ToString(),
+                "Files not supported.");
+            return;
+        }
     }
 
     private void RemoveFiles()
     {
+        if (TransferService.ReceiverIp is not null)
+        {
+            MessageBoxElement.ShowWarning("You can't delete files from list while sending in progress.");
+            return;
+        }
+
         foreach (FileModel f in SelectedFiles)
         {
             SendFiles.Remove(f);
