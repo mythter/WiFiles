@@ -30,7 +30,9 @@ namespace Client.Services
 
         public event EventHandler<FileModel>? ReceivingFileStarted;
         public event EventHandler<string>? ReceivingFileFailed;
-        public event EventHandler<string>? ExceptionHandled;
+
+        public event EventHandler? ReceivingStopped;
+
         public event EventHandler? ListeningStarted;
         public event EventHandler? ListeningStopped;
 
@@ -290,7 +292,7 @@ namespace Client.Services
                     ReceivingTokenSource = null;
                     IsReceiving = false;
                     tcpClient.Close();
-                }
+                ReceivingStopped?.Invoke(this, EventArgs.Empty);
             }
         }
 
