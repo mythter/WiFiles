@@ -21,6 +21,9 @@ namespace Client.Services
 
         public int BufferSize { get; set; } = 1024;
 
+        public int ReceiveTimeout { get; set; } = 15_000;
+        public int SendTimeout { get; set; } = 15_000;
+
         public string? SaveFolder { get; set; }
 
         public IPAddress? ReceiverIp { get; private set; }
@@ -67,6 +70,10 @@ namespace Client.Services
 
                 await SendFilesCount(files, stream, ClientTokenSource.Token);
 
+                // setting timeout for synchronous reading
+                // sync reading is needed to read response text byte-by-byte
+                TcpClient.ReceiveTimeout = 30_000;
+
                 // waiting for the response from receiver
                 string? response = await ReceiveLineAsync(stream, ClientTokenSource.Token);
 
@@ -112,7 +119,7 @@ namespace Client.Services
         {
             int fileCount = files.Count;
             byte[] fileCountBytes = BitConverter.GetBytes(fileCount);
-            await stream.WriteAsync(fileCountBytes.AsMemory(0, 4), cancellationToken);
+            await stream.WriteWithTimeoutAsync(fileCountBytes, SendTimeout, cancellationToken);
         }
 
         private async Task SendFiles(List<FileModel> files, NetworkStream stream, CancellationToken cancellationToken)
@@ -136,7 +143,8 @@ namespace Client.Services
                     {
                         Array.Resize(ref buffer, bytesRead);
                     }
-                    await stream.WriteAsync(buffer, cancellationToken);
+                    //await stream.WriteAsync(buffer, cancellationToken);
+                    await stream.WriteWithTimeoutAsync(buffer, SendTimeout, cancellationToken);
                 }
             }
             //}
@@ -150,14 +158,14 @@ namespace Client.Services
         {
             string fileName = Path.GetFileName(file.Path);
             byte[] data = Encoding.UTF8.GetBytes(fileName + '\n');
-            await stream.WriteAsync(data, cancellationToken);
+            await stream.WriteWithTimeoutAsync(data, SendTimeout, cancellationToken);
         }
 
         private async Task SendFileSize(FileModel file, NetworkStream stream, CancellationToken cancellationToken)
         {
             long fileSize = new FileInfo(file.Path).Length;
             byte[] fileSizeBytes = BitConverter.GetBytes(fileSize);
-            await stream.WriteAsync(fileSizeBytes.AsMemory(0, 8), cancellationToken);
+            await stream.WriteWithTimeoutAsync(fileSizeBytes, SendTimeout, cancellationToken);
         }
 
         public async Task StartListeningAsync()
@@ -236,6 +244,11 @@ namespace Client.Services
 #endif
             IsReceiving = true;
             ReceivingTokenSource = new CancellationTokenSource();
+            // setting timeout for synchronous reading
+            // sync reading is needed to read file name byte-by-byte
+            tcpClient.ReceiveTimeout = ReceiveTimeout;
+            try
+            {
             for (int i = 0; i < fileCount; i++)
             {
                 string? fileName = await ReceiveLineAsync(stream, ReceivingTokenSource.Token);
@@ -301,7 +314,7 @@ namespace Client.Services
                 while (sentSize < fileSize)
                 {
                     buffer = new byte[BufferSize < fileSize - sentSize ? BufferSize : fileSize - sentSize];
-                    int size = await stream.ReadWithTimeoutAsync(buffer, timeout, cancellationToken);
+                    int size = await stream.ReadWithTimeoutAsync(buffer, ReceiveTimeout, cancellationToken);
                     //int size = await stream.ReadAsync(buffer, cancellationToken);
                     if (size == 0)
                     {
@@ -336,7 +349,8 @@ namespace Client.Services
         private async Task<long> ReceiveFileSizeAsync(NetworkStream stream, CancellationToken cancellationToken)
         {
             byte[] fileSizeBytes = new byte[8];
-            await stream.ReadAsync(fileSizeBytes.AsMemory(0, 8), cancellationToken);
+            //await stream.ReadAsync(fileSizeBytes.AsMemory(0, 8), cancellationToken);
+            await stream.ReadWithTimeoutAsync(fileSizeBytes, ReceiveTimeout, cancellationToken);
             return BitConverter.ToInt32(fileSizeBytes, 0);
         }
 
