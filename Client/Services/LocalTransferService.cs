@@ -342,7 +342,7 @@ namespace Client.Services
                     //int size = await stream.ReadAsync(buffer, cancellationToken);
                     if (size == 0)
                     {
-                        throw new OperationCanceledException("Sender canceled the operation or was disconnected");
+                        throw new OperationCanceledException("Sender cancelled the operation or disconnected.");
                     }
                     await fs.WriteAsync(buffer.AsMemory(0, size));
                     sentSize += size;
