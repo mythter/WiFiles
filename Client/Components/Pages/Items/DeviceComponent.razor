@@ -9,9 +9,10 @@
 
 <div class="device" @ref="ElementDevice" tabindex="0"
      @onclick="@(() => {
-        if(TransferService.ReceiverIp is null ||
-           !TransferService.ReceiverIp.Equals(Ip))
+        if(TransferService.ReceiverIp is null /*|| !TransferService.ReceiverIp.Equals(Ip)*/)
+        {
             IsSendBtnVisible = true;
+        }
      })"
      @onfocusout="@(() => IsSendBtnVisible = false)">
 
