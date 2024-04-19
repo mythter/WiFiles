@@ -236,6 +236,7 @@ namespace Client.Services
 
         public void StopReceiving()
         {
+            IsReceiving = false;
             ReceivingTokenSource?.Cancel();
             ReceivingTokenSource = null;
             IsReceiving = false;
