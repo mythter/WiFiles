@@ -44,7 +44,7 @@ namespace Client.Services
         private CancellationTokenSource? ClientTokenSource { get; set; }
         private CancellationTokenSource? ReceivingTokenSource { get; set; }
 
-        public string ExceptionMessage { get; private set; }
+        public string? ExceptionMessage { get; private set; }
 
         public LocalTransferService()
         {
