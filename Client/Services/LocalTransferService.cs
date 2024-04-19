@@ -19,7 +19,7 @@ namespace Client.Services
         public bool IsListening { get; private set; }
         public bool IsReceiving { get; private set; }
 
-        public int BufferSize { get; set; } = 1024;
+        //public int BufferSize { get; set; } = 1024;
 
         public int ReceiveTimeout { get; set; } = 15_000;
         public int SendTimeout { get; set; } = 15_000;
@@ -139,12 +139,14 @@ namespace Client.Services
             byte[] buffer;
             foreach (FileModel file in files)
             {
+                int bufferSize = GetBufferSizeByFileSize(file.Size);
+
                 await SendFileName(file, stream, cancellationToken);
 
                 await SendFileSize(file, stream, cancellationToken);
 
                 using FileStream fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
-                long size = fs.Length < BufferSize ? fs.Length : BufferSize;
+                long size = fs.Length < bufferSize ? fs.Length : bufferSize;
                 buffer = new byte[size];
                 int bytesRead;
                 while ((bytesRead = await fs.ReadAsync(buffer)) > 0)
@@ -314,9 +316,10 @@ namespace Client.Services
 
                 long sentSize = 0;
                 byte[] buffer;
-                while (sentSize < fileSize)
+                int bufferSize = GetBufferSizeByFileSize(file.Size);
+                while (receivedSize < fileSize)
                 {
-                    buffer = new byte[BufferSize < fileSize - sentSize ? BufferSize : fileSize - sentSize];
+                    buffer = new byte[bufferSize < fileSize - receivedSize ? bufferSize : fileSize - receivedSize];
                     int size = await stream.ReadWithTimeoutAsync(buffer, ReceiveTimeout, cancellationToken);
                     if (size == 0)
                     {
@@ -399,6 +402,16 @@ namespace Client.Services
                 File.Delete(filePath);
                 ReceivingFileFailed?.Invoke(this, filePath);
             }
+        }
+
+        private int GetBufferSizeByFileSize(long fileSize)
+        {
+            return fileSize switch
+            {
+                < 10_485_760  => 1024,    // less than 10 MB
+                < 104_857_600 => 4096,    // less than 100 MB
+                _             => 16384    // more than 100 MB
+            };
         }
 
         private void RequestReadAccess()
