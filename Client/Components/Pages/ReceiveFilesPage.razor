@@ -2,8 +2,9 @@
 @using System.Net
 @inject NavigationService NavigationService
 @inject LocalTransferService TransferService
-@inject IStorageService storageService
+@inject IStorageService StorageService
 @inject IJSRuntime js
+@implements IDisposable
 
 <header class="header">
     <BadgeButton OnClick="@PickFolder">
@@ -36,7 +37,7 @@
         {
             <div class="message">
                 @("You haven't received any files yet")
-    </div>
+            </div>
         }
     </div>
 </div>
@@ -51,10 +52,18 @@
     [CascadingParameter(Name = "ReceivedFiles")]
     public List<FileModel> ReceivedFiles { get; set; }
 
+    [CascadingParameter(Name = "MessageBox")]
+    public MessageBox MessageBoxElement { get; set; }
+
     IJSObjectReference jsModule;
 
     ElementReference ElementFolderContainer;
     ElementReference ElementFolder;
+
+    protected override async Task OnInitializedAsync()
+    {
+        TransferService.ReceivingStopped += OnReceivingStopped;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -76,10 +85,34 @@
 
     private async Task PickFolder()
     {
-        string? path = await storageService.PickFolderAsync();
+        string? path = await StorageService.PickFolderAsync();
+
+        if (path is null)
+        {
+            return;
+        }
+
+        if (!StorageService.CheckIsDirectoryWritable(path))
+        {
+            MessageBoxElement.ShowError(
+                "Saving to the selected folder is not currently supported. Please select another folder.",
+                "Destination folder not supported");
+            return;
+        }
+
         if (!string.IsNullOrEmpty(path))
         {
             await SetFolder.InvokeAsync(path);
         }
+    }
+
+    private void OnReceivingStopped(object? sender, EventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        TransferService.ReceivingStopped -= OnReceivingStopped;
     }
 }
