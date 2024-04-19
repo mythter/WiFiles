@@ -36,6 +36,8 @@ namespace Client.Services
         public event EventHandler? ListeningStarted;
         public event EventHandler? ListeningStopped;
 
+        public event EventHandler<string>? ExceptionHandled;
+
         public Func<IPAddress?, int, Task<bool>>? OnSendFilesRequest { get; set; }
 
         private CancellationTokenSource? ListenerTokenSource { get; set; }
@@ -89,10 +91,24 @@ namespace Client.Services
             }
             catch (SocketException ex)
             {
+                if (ex.SocketErrorCode == SocketError.Shutdown)
+                {
+                    ExceptionHandled?.Invoke(this, "It seems the receiver cancelled the operation.");
+                }
+                else
+                {
                 ExceptionHandled?.Invoke(this, ex.Message);
+            }
             }
             catch (OperationCanceledException ex)
             {
+                //TcpClient.Client.Shutdown(SocketShutdown.Both);
+
+                // if operation cancelled not by us show error message
+                if (ClientTokenSource is not null)
+                {
+                    ExceptionHandled?.Invoke(this, ex.Message);
+            }
             }
             catch (Exception ex)
             {
@@ -263,21 +279,15 @@ namespace Client.Services
                 {
                     await ReceiveFilesAsync(filePath, fileSize, tcpClient, ReceivingTokenSource.Token);
                 }
+            }
                 catch (OperationCanceledException ex)
                 {
                     DeleteFileIfExists(filePath);
 
-                    if (ReceivingTokenSource is not null)
-                    {
-                        try
+                // if operation cancelled not by us show error message
+                if (IsReceiving)
                         {
-                            tcpClient.Client.Shutdown(SocketShutdown.Both);
-                        }
-                        catch (Exception e)
-                        {
-
-                            throw;
-                        }
+                    //tcpClient.Client.Shutdown(SocketShutdown.Both);
                         ExceptionHandled?.Invoke(this, ex.Message);
 
                     }
