@@ -31,6 +31,13 @@
         {
             <FileComponent File="@file"></FileComponent>
         }
+
+        @if (ReceivedFiles.Count == 0)
+        {
+            <div class="message">
+                @("You haven't received any files yet")
+    </div>
+        }
     </div>
 </div>
 

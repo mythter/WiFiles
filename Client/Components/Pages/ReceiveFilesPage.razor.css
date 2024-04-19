@@ -37,12 +37,23 @@
         }
 
 .files {
+    height: 100%;
     display: flex;
     flex-direction: column;
     gap: 5px;
     padding: 10px;
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+.message {
+    text-align: center;
+    color: #7070aa;
+    flex-grow: 1;
+    flex-shrink: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .running-text {
