@@ -263,6 +263,7 @@ namespace Client.Services
             RequestWriteAccess();
 #endif
             IsReceiving = true;
+            string? filePath = null;
             ReceivingTokenSource = new CancellationTokenSource();
             // setting timeout for synchronous reading
             // sync reading is needed to read file name byte-by-byte
@@ -271,11 +272,15 @@ namespace Client.Services
             {
             for (int i = 0; i < fileCount; i++)
             {
-                string? fileName = await ReceiveLineAsync(stream, ReceivingTokenSource.Token);
+                    string? fileName = await ReceiveLineAsync(stream, ReceivingTokenSource!.Token);
+                    if (string.IsNullOrWhiteSpace(fileName))
+                    {
+                        throw new OperationCanceledException("Sender cancelled the operation or disconnected.");
+                    }
 
                 long fileSize = await ReceiveFileSizeAsync(stream, ReceivingTokenSource.Token);
 
-                string filePath = GetUniqueFilePath(fileName);
+                    filePath = GetUniqueFilePath(fileName);
 
                 try
                 {
@@ -294,6 +299,10 @@ namespace Client.Services
 
                     }
                 }
+            //catch (IOException ex)
+            //{
+            //    ExceptionHandled?.Invoke(this, "It seems the sender cancelled the operation.");
+            //}
                 catch (Exception ex)
                 {
                     DeleteFileIfExists(filePath);
@@ -301,6 +310,7 @@ namespace Client.Services
                 }
                 finally
                 {
+                IsReceiving = false;
                     ReceivingTokenSource = null;
                     IsReceiving = false;
                     tcpClient.Close();
