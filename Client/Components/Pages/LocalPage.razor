@@ -255,6 +255,20 @@
 
     private async Task StartListening()
     {
+        if (SaveFolder is null)
+        {
+            MessageBoxElement.ShowError(
+                "You need to select destination folder before receiving files.", 
+                "Destination folder not selected");
+        }
+
+        if (SaveFolder is null)
+        {
+            MessageBoxElement.ShowError(
+                "Saving to the selected folder is not currently supported. Please select another folder.",
+                "Destination folder not supported");
+        }
+
         await TransferService.StartListeningAsync();
     }
 
