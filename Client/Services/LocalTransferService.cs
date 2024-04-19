@@ -57,7 +57,6 @@ namespace Client.Services
             if (files is null || files.Count == 0)
                 return;
 
-
             try
             {
                 if (TcpClient.Connected)
@@ -102,8 +101,6 @@ namespace Client.Services
             }
             catch (OperationCanceledException ex)
             {
-                //TcpClient.Client.Shutdown(SocketShutdown.Both);
-
                 // if operation cancelled not by us show error message
                 if (ClientTokenSource is not null)
                 {
@@ -120,7 +117,6 @@ namespace Client.Services
                 ReceiverIp = null;
                 TcpClient.Close();
                 TcpClient = new TcpClient();
-                //StopSending();
             }
         }
 
@@ -129,8 +125,6 @@ namespace Client.Services
             ClientTokenSource?.Cancel();
             ClientTokenSource = null;
             ReceiverIp = null;
-            //TcpClient.Close();
-            //TcpClient = new TcpClient();
         }
 
         private async Task SendFilesCount(List<FileModel> files, NetworkStream stream, CancellationToken cancellationToken)
@@ -159,7 +153,6 @@ namespace Client.Services
                     {
                         Array.Resize(ref buffer, bytesRead);
                     }
-                    //await stream.WriteAsync(buffer, cancellationToken);
                     await stream.WriteWithTimeoutAsync(buffer, SendTimeout, cancellationToken);
                 }
             }
@@ -288,14 +281,9 @@ namespace Client.Services
                 // if operation cancelled not by us show error message
                 if (IsReceiving)
                 {
-                    //tcpClient.Client.Shutdown(SocketShutdown.Both);
                     ExceptionHandled?.Invoke(this, ex.Message);
                 }
             }
-            //catch (IOException ex)
-            //{
-            //    ExceptionHandled?.Invoke(this, "It seems the sender cancelled the operation.");
-            //}
             catch (Exception ex)
             {
                 DeleteFileIfExists(filePath);
@@ -330,7 +318,6 @@ namespace Client.Services
                 {
                     buffer = new byte[BufferSize < fileSize - sentSize ? BufferSize : fileSize - sentSize];
                     int size = await stream.ReadWithTimeoutAsync(buffer, ReceiveTimeout, cancellationToken);
-                    //int size = await stream.ReadAsync(buffer, cancellationToken);
                     if (size == 0)
                     {
                         throw new OperationCanceledException("Sender cancelled the operation or disconnected.");
@@ -344,10 +331,6 @@ namespace Client.Services
 
         private Task<string> ReceiveLineAsync(NetworkStream stream, CancellationToken cancellationToken = default)
         {
-            //using StreamReader streamReader = new StreamReader(stream, leaveOpen: true);
-            ////string? line = await streamReader.ReadLineAsync(cancellationToken);
-            //string? line = await streamReader.ReadLineWithTimeoutAsync(timeout, cancellationToken);
-            //return line;
             return Task.Run(() =>
             {
                 var fileNameList = new List<byte>();
@@ -364,7 +347,6 @@ namespace Client.Services
         private async Task<long> ReceiveFileSizeAsync(NetworkStream stream, CancellationToken cancellationToken)
         {
             byte[] fileSizeBytes = new byte[8];
-            //await stream.ReadAsync(fileSizeBytes.AsMemory(0, 8), cancellationToken);
             await stream.ReadWithTimeoutAsync(fileSizeBytes, ReceiveTimeout, cancellationToken);
             return BitConverter.ToInt32(fileSizeBytes, 0);
         }
