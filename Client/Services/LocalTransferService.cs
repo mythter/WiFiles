@@ -24,7 +24,7 @@ namespace Client.Services
         public int ReceiveTimeout { get; set; } = 15_000;
         public int SendTimeout { get; set; } = 15_000;
 
-        public string? SaveFolder { get; set; }
+        public string SaveFolder { get; set; }
 
         public IPAddress? ReceiverIp { get; private set; }
 
@@ -261,6 +261,11 @@ namespace Client.Services
             tcpClient.ReceiveTimeout = ReceiveTimeout;
             try
             {
+                if (string.IsNullOrEmpty(SaveFolder))
+                {
+                    throw new InvalidOperationException("Destination folder not setted.");
+                }
+
                 for (int i = 0; i < fileCount; i++)
                 {
                     string? fileName = await ReceiveLineAsync(stream, ReceivingTokenSource!.Token);
