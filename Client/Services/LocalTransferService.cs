@@ -57,7 +57,6 @@ namespace Client.Services
             if (files is null || files.Count == 0)
                 return;
 
-            ReceiverIp = ip;
 
             try
             {
@@ -98,8 +97,8 @@ namespace Client.Services
                 }
                 else
                 {
-                ExceptionHandled?.Invoke(this, ex.Message);
-            }
+                    ExceptionHandled?.Invoke(this, ex.Message);
+                }
             }
             catch (OperationCanceledException ex)
             {
@@ -109,7 +108,7 @@ namespace Client.Services
                 if (ClientTokenSource is not null)
                 {
                     ExceptionHandled?.Invoke(this, ex.Message);
-            }
+                }
             }
             catch (Exception ex)
             {
@@ -144,8 +143,6 @@ namespace Client.Services
         private async Task SendFiles(List<FileModel> files, NetworkStream stream, CancellationToken cancellationToken)
         {
             byte[] buffer;
-            //try
-            //{
             foreach (FileModel file in files)
             {
                 await SendFileName(file, stream, cancellationToken);
@@ -166,11 +163,6 @@ namespace Client.Services
                     await stream.WriteWithTimeoutAsync(buffer, SendTimeout, cancellationToken);
                 }
             }
-            //}
-            //catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException)
-            //{
-            //    throw new OperationCanceledException(ex.Message, ex);
-            //}
         }
 
         private async Task SendFileName(FileModel file, NetworkStream stream, CancellationToken cancellationToken)
@@ -239,7 +231,6 @@ namespace Client.Services
             IsReceiving = false;
             ReceivingTokenSource?.Cancel();
             ReceivingTokenSource = null;
-            IsReceiving = false;
         }
 
         private async Task ProcessClientAsync(TcpClient tcpClient)
@@ -270,50 +261,46 @@ namespace Client.Services
             tcpClient.ReceiveTimeout = ReceiveTimeout;
             try
             {
-            for (int i = 0; i < fileCount; i++)
-            {
+                for (int i = 0; i < fileCount; i++)
+                {
                     string? fileName = await ReceiveLineAsync(stream, ReceivingTokenSource!.Token);
                     if (string.IsNullOrWhiteSpace(fileName))
                     {
                         throw new OperationCanceledException("Sender cancelled the operation or disconnected.");
                     }
 
-                long fileSize = await ReceiveFileSizeAsync(stream, ReceivingTokenSource.Token);
+                    long fileSize = await ReceiveFileSizeAsync(stream, ReceivingTokenSource.Token);
 
                     filePath = GetUniqueFilePath(fileName);
 
-                try
-                {
                     await ReceiveFilesAsync(filePath, fileSize, tcpClient, ReceivingTokenSource.Token);
                 }
             }
-                catch (OperationCanceledException ex)
-                {
-                    DeleteFileIfExists(filePath);
+            catch (OperationCanceledException ex)
+            {
+                DeleteFileIfExists(filePath);
 
                 // if operation cancelled not by us show error message
                 if (IsReceiving)
-                        {
+                {
                     //tcpClient.Client.Shutdown(SocketShutdown.Both);
-                        ExceptionHandled?.Invoke(this, ex.Message);
-
-                    }
+                    ExceptionHandled?.Invoke(this, ex.Message);
                 }
+            }
             //catch (IOException ex)
             //{
             //    ExceptionHandled?.Invoke(this, "It seems the sender cancelled the operation.");
             //}
-                catch (Exception ex)
-                {
-                    DeleteFileIfExists(filePath);
-                    ExceptionHandled?.Invoke(this, ex.Message);
-                }
-                finally
-                {
+            catch (Exception ex)
+            {
+                DeleteFileIfExists(filePath);
+                ExceptionHandled?.Invoke(this, ex.Message);
+            }
+            finally
+            {
                 IsReceiving = false;
-                    ReceivingTokenSource = null;
-                    IsReceiving = false;
-                    tcpClient.Close();
+                ReceivingTokenSource = null;
+                tcpClient.Close();
                 ReceivingStopped?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -334,7 +321,6 @@ namespace Client.Services
 
                 long sentSize = 0;
                 byte[] buffer;
-                int timeout = 5000;
                 while (sentSize < fileSize)
                 {
                     buffer = new byte[BufferSize < fileSize - sentSize ? BufferSize : fileSize - sentSize];
