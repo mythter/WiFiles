@@ -87,10 +87,10 @@
     public bool Listening { get; set; }
 
     [CascadingParameter(Name = "SendFiles")]
-    public List<FileModel> SendFiles { get; set; }
+    public List<FileModel> SendFiles { get; set; } = null!;
 
     [CascadingParameter(Name = "ReceivedFiles")]
-    public List<FileModel> ReceivedFiles { get; set; }
+    public List<FileModel> ReceivedFiles { get; set; } = null!;
 
     [CascadingParameter(Name = "SaveFolder")]
     public string? SaveFolder { get; set; }
@@ -98,7 +98,7 @@
     IJSObjectReference jsModule = null!;
 
     [CascadingParameter(Name = "MessageBox")]
-    private MessageBox MessageBoxElement { get; set; }
+    private MessageBox MessageBoxElement { get; set; } = null!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -122,6 +122,7 @@
 
     private void GetGateways()
     {
+        Gateways.Clear();
         foreach (var ip in IPs)
         {
             IPAddress? gateway = lns.GetGatewayByIp(ip);
@@ -185,6 +186,7 @@
         if (ip is null)
             return;
 
+        LocalIPs.Clear();
         IPAddress? mask = lns.GetSubnetMaskByIp(ip);
 
         if (mask is null || mask.GetAddressBytes().Count(b => b == 0) > 2)
@@ -210,9 +212,7 @@
 
             var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
 
-            // Task.Run(() => PingHost(host));
             pings.Add(PingHost(host));
-            // PingHost(host);
         }
 
         await Task.WhenAll(pings);
@@ -241,7 +241,6 @@
         Supported = ip is null || lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) > 2 ? false : true;
         if (Supported)
         {
-            LocalIPs.Clear();
             Task.Run(() => PingLocalIPs(ip));
         }
     }
