@@ -105,13 +105,10 @@
         Listening = TransferService.IsListening;
         TransferService.ListeningStarted += ListeningStarted;
         TransferService.ListeningStopped += ListeningStopped;
-        // IPs = lns.GetAllHostIpAddressesWithGateway();
-        // GetGateways();
         await Task.Run(async () =>
         {
             IPs = lns.GetAllHostIpAddressesWithGateway();
             GetGateways();
-            // GetLocalIPs();
             var selectedIp = IPs
                 .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
             Supported = selectedIp is null ? false : true;
@@ -132,54 +129,6 @@
             }
         }
     }
-
-    // private void GetLocalIPs()
-    // {
-    //     foreach (var ip in IPs)
-    //     {
-    //         IPAddress? mask = lns.GetSubnetMaskByIp(ip);
-
-    //         if (mask?.GetAddressBytes().Count(b => b == 0) > 1 ||
-    //             mask is null)
-    //             continue;
-
-    //         if (mask is not null)
-    //         {
-    //             IPAddress network = lns.GetNetworkAddress(ip, mask);
-
-    //             byte[] hosts = mask.GetAddressBytes().Select(b => (byte)(byte.MaxValue - b)).ToArray();
-
-    //             byte[] init = new byte[4];
-    //             while (!hosts.SequenceEqual(init))
-    //             {
-    //                 for (int i = 3; i >= 0; i--)
-    //                 {
-    //                     if (init[i]++ == 255) continue;
-    //                     break;
-    //                 }
-
-    //                 var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
-
-    //                 Ping p = new Ping();
-    //                 p.PingCompleted += PingCompleted;
-    //                 p.SendAsync(host, host);
-    //             }
-    //         }
-    //     }
-    // }
-
-    // private void PingCompleted(object sender, PingCompletedEventArgs e)
-    // {
-    //     if (e.Reply != null &&
-    //         e.Reply.Status == IPStatus.Success &&
-    //         !IPs.Contains((IPAddress)e.UserState!) &&
-    //         !Gateways.Contains((IPAddress)e.UserState!) &&
-    //         !LocalIPs.Contains((IPAddress)e.UserState!))
-    //     {
-    //         LocalIPs.Add((IPAddress)e.UserState!);
-    //         InvokeAsync(StateHasChanged);
-    //     }
-    // }
 
     private async Task PingLocalIPs(IPAddress? ip)
     {
