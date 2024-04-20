@@ -260,6 +260,7 @@
             MessageBoxElement.ShowError(
                 "You need to select destination folder before receiving files.", 
                 "Destination folder not selected");
+            return;
         }
 
         if (SaveFolder is null)
@@ -267,6 +268,7 @@
             MessageBoxElement.ShowError(
                 "Saving to the selected folder is not currently supported. Please select another folder.",
                 "Destination folder not supported");
+            return;
         }
 
         await TransferService.StartListeningAsync();
@@ -282,6 +284,7 @@
         if (SendFiles.Count == 0)
         {
             MessageBoxElement.ShowWarning("You have no files to send.");
+            return;
         }
 
         await TransferService.StartSendingAsync(ip, SendFiles);
