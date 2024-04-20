@@ -24,7 +24,7 @@ namespace Client.Services
         public int ReceiveTimeout { get; set; } = 15_000;
         public int SendTimeout { get; set; } = 15_000;
 
-        public string SaveFolder { get; set; } = null!;
+        public string? SaveFolder { get; set; }/* = null!;*/
 
         public IPAddress? ReceiverIp { get; private set; }
 
@@ -371,12 +371,12 @@ namespace Client.Services
         {
             string extension = Path.GetExtension(fileName);
             string tempName = Path.GetFileNameWithoutExtension(fileName);
-            string filePath = Path.Combine(SaveFolder, fileName);
+            string filePath = Path.Combine(SaveFolder!, fileName);
             int n = 1;
             while (File.Exists(filePath))
             {
                 fileName = $"{tempName} ({n}){extension}";
-                filePath = Path.Combine(SaveFolder, fileName);
+                filePath = Path.Combine(SaveFolder!, fileName);
                 n++;
             }
 
