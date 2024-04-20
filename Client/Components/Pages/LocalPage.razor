@@ -72,11 +72,14 @@
 </div>
 
 @code {
-    public List<IPAddress> IPs { get; set; } = new();
+    [CascadingParameter(Name = "IPs")]
+    public List<IPAddress> IPs { get; set; } = null!;
 
-    public List<IPAddress> Gateways { get; set; } = new();
+    [CascadingParameter(Name = "Gateways")]
+    public List<IPAddress> Gateways { get; set; } = null!;
 
-    public List<IPAddress> LocalIPs { get; set; } = new();
+    [CascadingParameter(Name = "LocalIPs")]
+    public List<IPAddress> LocalIPs { get; set; } = null!;
 
     public string? SelectedIp { get; set; }
 
@@ -103,21 +106,35 @@
     protected override async Task OnInitializedAsync()
     {
         Listening = TransferService.IsListening;
+        await InvokeAsync(StateHasChanged);
         TransferService.ListeningStarted += ListeningStarted;
         TransferService.ListeningStopped += ListeningStopped;
         // IPs = lns.GetAllHostIpAddressesWithGateway();
         // GetGateways();
-        await Task.Run(async () =>
+        if (IPs.Count > 0)
         {
-            IPs = lns.GetAllHostIpAddressesWithGateway();
-            GetGateways();
-            // GetLocalIPs();
-            var selectedIp = IPs
-                .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
-            Supported = selectedIp is null ? false : true;
-            SelectedIp ??= selectedIp?.ToString();
-            await PingLocalIPs(selectedIp);
-        });
+            await Task.Run(() =>
+            {
+                var selectedIp = IPs
+                    .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
+                Supported = selectedIp is null ? false : true;
+                SelectedIp ??= selectedIp?.ToString();
+            });
+            // await InvokeAsync(StateHasChanged);
+        }
+        else
+        {
+            await Task.Run(async () =>
+            {
+                IPs.AddRange(lns.GetAllHostIpAddressesWithGateway());
+                GetGateways();
+                var selectedIp = IPs
+                    .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
+                Supported = selectedIp is null ? false : true;
+                SelectedIp ??= selectedIp?.ToString();
+                await PingLocalIPs(selectedIp);
+            });
+        }
     }
 
     private void GetGateways()
@@ -272,7 +289,7 @@
         if (SaveFolder is null)
         {
             MessageBoxElement.ShowError(
-                "You need to select destination folder before receiving files.", 
+                "You need to select destination folder before receiving files.",
                 "Destination folder not selected");
             return;
         }

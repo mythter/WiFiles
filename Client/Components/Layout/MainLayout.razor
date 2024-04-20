@@ -4,24 +4,30 @@
 @inject IStorageService StorageService
 @inject LocalTransferService TransferService
 
-<CascadingValue Value="@MessageBoxElement" Name="MessageBox">
-    <CascadingValue Value="@SendFiles" Name="SendFiles">
-        <CascadingValue Value="@ReceivedFiles" Name="ReceivedFiles">
-            <CascadingValue Value="@SaveFolder" Name="SaveFolder">
-                <CascadingValue Value="@SetFolder" Name="SetFolder">
-                    <div class="page">
-                        <main class="main">
-                            @Body
-                        </main>
-                        @* <div class="menu">
-                        <div class="item">
-                        Local
-                        </div>
-                        <div class="item">
-                        Global
-                        </div>
-                        </div> *@
-                    </div>
+<CascadingValue Value="@IPs" Name="IPs">
+    <CascadingValue Value="@Gateways" Name="Gateways">
+        <CascadingValue Value="@LocalIPs" Name="LocalIPs">
+            <CascadingValue Value="@MessageBoxElement" Name="MessageBox">
+                <CascadingValue Value="@SendFiles" Name="SendFiles">
+                    <CascadingValue Value="@ReceivedFiles" Name="ReceivedFiles">
+                        <CascadingValue Value="@SaveFolder" Name="SaveFolder">
+                            <CascadingValue Value="@SetFolder" Name="SetFolder">
+                                <div class="page">
+                                    <main class="main">
+                                        @Body
+                                    </main>
+                                    @* <div class="menu">
+                                    <div class="item">
+                                    Local
+                                    </div>
+                                    <div class="item">
+                                    Global
+                                    </div>
+                                    </div> *@
+                                </div>
+                            </CascadingValue>
+                        </CascadingValue>
+                    </CascadingValue>
                 </CascadingValue>
             </CascadingValue>
         </CascadingValue>
@@ -31,6 +37,12 @@
 <MessageBox @ref="MessageBoxElement"></MessageBox>
 
 @code {
+    public List<IPAddress> IPs { get; set; } = new();
+
+    public List<IPAddress> Gateways { get; set; } = new();
+
+    public List<IPAddress> LocalIPs { get; set; } = new();
+
     public List<FileModel> SendFiles { get; set; } = new();
 
     public List<FileModel> ReceivedFiles { get; set; } = new();
