@@ -252,6 +252,21 @@
         Task.Run(() => PingLocalIPs(ip));
     }
 
+    private async Task RefreshAll()
+    {
+        await Task.Run(async () =>
+        {
+            IPs.Clear();
+            IPs.AddRange(lns.GetAllHostIpAddressesWithGateway());
+            GetGateways();
+            var selectedIp = IPs
+                .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
+            Supported = selectedIp is null ? false : true;
+            SelectedIp ??= selectedIp?.ToString();
+            await PingLocalIPs(selectedIp);
+        });
+    }
+
     private async Task StartListening()
     {
         if (SaveFolder is null)
