@@ -97,7 +97,7 @@
         // useful repository with file extensions
         // https://github.com/dyne/file-extension-list
 
-        return Path.GetExtension(File.Path)?.Trim('.') switch
+        return Path.GetExtension(File.Path)?.Trim('.')?.ToLower() switch
         {
             // text formats
             "pdf" => "<i class=\"ph ph-file-pdf\"></i>",
