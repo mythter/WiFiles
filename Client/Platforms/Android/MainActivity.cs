@@ -316,7 +316,17 @@ namespace Client
                     else if (id.StartsWith("msf:"))
                     {
                         // like msf:7755
+                        if (Build.VERSION.SdkInt >= BuildVersionCodes.Q)
+                        {
+                            string[] split = id.Split(':');
+                            string selection = "_id=?";
+                            string[] selectionArgs = { split[1] };
+                            return GetDataColumn(context, Downloads.ExternalContentUri, selection, selectionArgs);
+                        }
+                        else
+                        {
                         id = id.Substring("msf:".Length);
+                    }
                     }
                     try
                     {
