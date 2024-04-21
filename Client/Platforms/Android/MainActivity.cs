@@ -7,6 +7,8 @@ using Android.OS.Storage;
 using Android.Provider;
 using AndroidX.Activity.Result;
 using AndroidX.Activity.Result.Contract;
+using AndroidX.Core.App;
+using AndroidX.Core.Content;
 using static Android.Provider.MediaStore;
 using Environment = Android.OS.Environment;
 using Uri = Android.Net.Uri;
@@ -22,15 +24,6 @@ namespace Client
 
         protected override void OnCreate(Bundle? savedInstanceState)
         {
-            //if (Build.VERSION.SdkInt >= BuildVersionCodes.R && !Environment.IsExternalStorageManager)
-            //{
-            //    Intent intent = new Intent();
-            //    intent.SetAction(Settings.ActionManageAppAllFilesAccessPermission);
-            //    Uri uri = Uri.FromParts("package", PackageName, null);
-            //    intent.SetData(uri);
-            //    StartActivity(intent);
-            //}
-
             base.OnCreate(savedInstanceState);
 
             PickFolderAsync = PreparePickFolder(this);
@@ -60,7 +53,7 @@ namespace Client
                     var uri = intent?.Data;
 
                     var docUriTree = DocumentsContract.BuildDocumentUriUsingTree(uri, DocumentsContract.GetTreeDocumentId(uri));
-                    
+
                     var context = Android.App.Application.Context;
 
                     if (docUriTree is not null)
@@ -183,7 +176,7 @@ namespace Client
                     intent.SetAction(Settings.ActionManageAllFilesAccessPermission);
                     StartActivity(intent);
                 }
-                }
+            }
             else
             {
                 // Below Android 11
@@ -325,8 +318,8 @@ namespace Client
                         }
                         else
                         {
-                        id = id.Substring("msf:".Length);
-                    }
+                            id = id.Substring("msf:".Length);
+                        }
                     }
                     try
                     {
