@@ -16,18 +16,28 @@ namespace Client
     [Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
     public class MainActivity : MauiAppCompatActivity
     {
+        private static readonly int STORAGE_PERMISSION_CODE = 23;
         public static Func<Task<string?>> PickFolderAsync { get; set; } = null!;
         public static Func<Task<List<string>>> PickFilesAsync { get; set; } = null!;
 
         protected override void OnCreate(Bundle? savedInstanceState)
         {
+            //if (Build.VERSION.SdkInt >= BuildVersionCodes.R && !Environment.IsExternalStorageManager)
+            //{
+            //    Intent intent = new Intent();
+            //    intent.SetAction(Settings.ActionManageAppAllFilesAccessPermission);
+            //    Uri uri = Uri.FromParts("package", PackageName, null);
+            //    intent.SetData(uri);
+            //    StartActivity(intent);
+            //}
+
             base.OnCreate(savedInstanceState);
 
             PickFolderAsync = PreparePickFolder(this);
             PickFilesAsync = PreparePickFiles(this);
         }
 
-        static Func<Task<string?>> PreparePickFolder(MainActivity activity)
+        Func<Task<string?>> PreparePickFolder(MainActivity activity)
         {
             var intent = new Intent(Intent.ActionOpenDocumentTree);
             intent.PutExtra("android.content.extra.SHOW_ADVANCED", true);
@@ -63,13 +73,17 @@ namespace Client
 
             return () =>
             {
+                if (!CheckStoragePermissions())
+                {
+                    RequestForStoragePermissions();
+                }
                 taskCompletionSource = new TaskCompletionSource<string?>();
                 activityResultLauncher.Launch(intent);
                 return taskCompletionSource.Task;
             };
         }
 
-        static Func<Task<List<string>>> PreparePickFiles(MainActivity activity)
+        Func<Task<List<string>>> PreparePickFiles(MainActivity activity)
         {
             var intent = new Intent(Intent.ActionOpenDocument);
 
@@ -123,11 +137,68 @@ namespace Client
 
             return () =>
             {
+                if (!CheckStoragePermissions())
+                {
+                    RequestForStoragePermissions();
+                }
                 taskCompletionSource = new TaskCompletionSource<List<string>>();
                 activityResultLauncher.Launch(intent);
                 return taskCompletionSource.Task;
             };
         }
+
+        public bool CheckStoragePermissions()
+        {
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.R)
+            {
+                // Android 11 (R) and higher
+                return Environment.IsExternalStorageManager;
+            }
+            else
+            {
+                // Below Android 11
+                var write = ContextCompat.CheckSelfPermission(this, Android.Manifest.Permission.WriteExternalStorage);
+                var read = ContextCompat.CheckSelfPermission(this, Android.Manifest.Permission.ReadExternalStorage);
+
+                return read == Permission.Granted && write == Permission.Granted;
+            }
+        }
+
+        private void RequestForStoragePermissions()
+        {
+            // Android 11 (R) and higher
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.R)
+            {
+                try
+                {
+                    Intent intent = new Intent();
+                    intent.SetAction(Settings.ActionManageAppAllFilesAccessPermission);
+                    Uri uri = Uri.FromParts("package", PackageName, null);
+                    intent.SetData(uri);
+                    StartActivity(intent);
+                }
+                catch (Exception)
+                {
+                    Intent intent = new Intent();
+                    intent.SetAction(Settings.ActionManageAllFilesAccessPermission);
+                    StartActivity(intent);
+                }
+                }
+            else
+            {
+                // Below Android 11
+                ActivityCompat.RequestPermissions(
+                    this,
+                    new string[]
+                    {
+                        Android.Manifest.Permission.WriteExternalStorage,
+                        Android.Manifest.Permission.ReadExternalStorage
+                    },
+                    STORAGE_PERMISSION_CODE
+                );
+            }
+        }
+
 
         private static string GetRealPath(Context context, Uri fileUri)
         {
