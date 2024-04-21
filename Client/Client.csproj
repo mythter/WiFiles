@@ -22,10 +22,10 @@
 		<Nullable>enable</Nullable>
 
 		<!-- Display name -->
-		<ApplicationTitle>Client</ApplicationTitle>
+		<ApplicationTitle>WiFiles</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.companyname.client</ApplicationId>
+		<ApplicationId>com.mythter.wifiles</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
