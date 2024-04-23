@@ -20,6 +20,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<EnableDefaultCssItems>false</EnableDefaultCssItems>
 		<Nullable>enable</Nullable>
+		<AssemblyName>WiFiles</AssemblyName>
 
 		<!-- Display name -->
 		<ApplicationTitle>WiFiles</ApplicationTitle>
@@ -46,6 +47,10 @@
 		<AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
 		<GenerateTestArtifacts>True</GenerateTestArtifacts>
 		<HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+
+		<!--<WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>-->
+
+		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(RuntimeIdentifierOverride)' != ''">
@@ -59,12 +64,11 @@
 	<ItemGroup>
 		<!-- App Icon -->
 		<!-- App icon for Windows -->
-		<MauiIcon Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'"
-				  Include="Resources\AppIcon\icon.svg" />
+		<MauiIcon Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" Include="Resources\AppIcon\icon.svg" />
 		
 		<!-- App icon for all other platforms -->
 		<!--<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />-->
-		<MauiIcon Include="Resources\AppIcon\icon_bg.svg" ForegroundFile="Resources\AppIcon\icon_fg.svg" ForegroundScale="0.5"/>
+		<MauiIcon Include="Resources\AppIcon\icon_bg.svg" ForegroundFile="Resources\AppIcon\icon_fg.svg" ForegroundScale="0.5" />
 		<!--<MauiIcon Include="Resources\AppIcon\icon.svg" ForegroundScale="0.5"/>-->
 
 		<!-- Splash Screen -->
