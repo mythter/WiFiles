@@ -215,14 +215,14 @@ namespace Client
 
         private static string GetRealPathFromURI_API11to18(Context context, Uri contentUri)
         {
-            string[] proj = { MediaStore.Images.ImageColumns.Data };
+            string[] proj = { Images.ImageColumns.Data };
             string result = null;
 
             using (ICursor cursor = new CursorLoader(context, contentUri, proj, null, null, null).LoadInBackground() as ICursor)
             {
                 if (cursor != null)
                 {
-                    int column_index = cursor.GetColumnIndexOrThrow(MediaStore.Images.ImageColumns.Data);
+                    int column_index = cursor.GetColumnIndexOrThrow(Images.ImageColumns.Data);
                     cursor.MoveToFirst();
                     result = cursor.GetString(column_index);
                 }
@@ -233,14 +233,14 @@ namespace Client
 
         private static string GetRealPathFromURI_BelowAPI11(Context context, Uri contentUri)
         {
-            string[] proj = { MediaStore.Images.ImageColumns.Data };
+            string[] proj = { Images.ImageColumns.Data };
             string result = "";
 
             using (ICursor cursor = context.ContentResolver.Query(contentUri, proj, null, null, null))
             {
                 if (cursor != null)
                 {
-                    int column_index = cursor.GetColumnIndexOrThrow(MediaStore.Images.ImageColumns.Data);
+                    int column_index = cursor.GetColumnIndexOrThrow(Images.ImageColumns.Data);
                     cursor.MoveToFirst();
                     result = cursor.GetString(column_index);
                     cursor.Close();
