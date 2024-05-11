@@ -2,6 +2,7 @@
     color: #fff;
     background-color: #393a5f;
     height: 50px;
+    min-height: 50px;
     padding-left: 15px;
     border-radius: 5px;
     display: flex;
