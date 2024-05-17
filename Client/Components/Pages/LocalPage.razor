@@ -253,11 +253,6 @@
         await TransferService.StartSendingAsync(ip, SendFiles);
     }
 
-    private void StopSending()
-    {
-        TransferService.StopSending();
-    }
-
     private void ListeningStarted(object? sender, EventArgs e)
     {
         Listening = true;
