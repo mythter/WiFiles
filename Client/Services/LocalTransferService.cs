@@ -47,8 +47,6 @@ namespace Client.Services
         private CancellationTokenSource? ClientTokenSource { get; set; }
         private CancellationTokenSource? ReceivingTokenSource { get; set; }
 
-        public string? ExceptionMessage { get; private set; }
-
         public LocalTransferService()
         {
             TcpListener = new TcpListener(IPAddress.Any, PortListen);
