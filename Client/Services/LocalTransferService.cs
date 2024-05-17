@@ -275,7 +275,7 @@ namespace Client.Services
 
                     filePath = GetUniqueFilePath(fileName);
 
-                    await ReceiveFilesAsync(filePath, fileSize, tcpClient, ReceivingTokenSource.Token);
+                    await ReceiveFileAsync(filePath, fileSize, tcpClient, ReceivingTokenSource.Token);
                 }
 
                 ReceivingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
@@ -304,7 +304,7 @@ namespace Client.Services
             }
         }
 
-        private async Task ReceiveFilesAsync(string filePath, long fileSize, TcpClient tcpClient, CancellationToken cancellationToken)
+        private async Task ReceiveFileAsync(string filePath, long fileSize, TcpClient tcpClient, CancellationToken cancellationToken)
         {
             NetworkStream stream = tcpClient.GetStream();
 
