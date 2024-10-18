@@ -22,6 +22,8 @@
 		<Nullable>enable</Nullable>
 		<AssemblyName>WiFiles</AssemblyName>
 
+		<NoWarn>S1450</NoWarn>
+
 		<!-- Display name -->
 		<ApplicationTitle>WiFiles</ApplicationTitle>
 
