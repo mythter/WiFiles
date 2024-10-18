@@ -12,12 +12,12 @@ namespace Client
             services.AddSingleton<LocalTransferService>();
 
 #if ANDROID
-            services.AddScoped<ILocalNetworkService, AndroidLocalNetworkService>();
+            services.AddSingleton<INetworkInfoService, AndroidNetworkInfoService>();
             services.AddSingleton<IDeviceService, AndroidDeviceService>();
 
             services.AddScoped<IStorageService, AndroidStorageService>();
 #elif WINDOWS
-            services.AddScoped<ILocalNetworkService, WindowsLocalNetworkService>();
+            services.AddSingleton<INetworkInfoService, WindowsNetworkInfoService>();
             services.AddSingleton<IDeviceService, WindowsDeviceService>();
 
             services.AddScoped<IStorageService, WindowsStorageService>();
