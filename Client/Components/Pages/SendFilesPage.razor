@@ -5,9 +5,9 @@
 @inject LocalTransferService TransferService
 
 <header class="header">
-    <BadgeButton OnClick="@PickFiles">
+    <RealButton OnClick="@PickFiles">
         <i class="ph ph-plus"></i>
-    </BadgeButton>
+    </RealButton>
     @if (SelectedFiles.Count > 0)
     {
         <BadgeButton OnClick="@RemoveFiles">

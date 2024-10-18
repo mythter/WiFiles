@@ -7,9 +7,9 @@
 @implements IDisposable
 
 <header class="header">
-    <BadgeButton OnClick="@PickFolder">
+    <RealButton OnClick="@PickFolder">
         <i class="ph ph-folder-notch"></i>
-    </BadgeButton>
+    </RealButton>
     @if (TransferService.IsReceiving)
     {
         <BadgeButton OnClick="@TransferService.StopReceiving">
