@@ -20,7 +20,7 @@
                  Count="SendFiles.Count">
         <i class="ph ph-upload-simple"></i>
     </BadgeButton>
-    <BadgeButton Class="left" OnClick="@(() => Listening ? StopListening() : StartListening())">
+    <RealToggleButton Class="left" IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
         @if (Listening)
         {
             <i class="ph ph-ear"></i>
@@ -29,7 +29,7 @@
         {
             <i class="ph ph-ear-slash"></i>
         }
-    </BadgeButton>
+    </RealToggleButton>
 </header>
 
 <div class="main">
