@@ -16,12 +16,21 @@
      })"
      @onfocusout="@(() => IsSendBtnVisible = false)">
 
-    <div class="device-info">
-        @Ip?.ToString()
+    <div class="icon">
+        @((MarkupString)GetDeviceIcon())
     </div>
 
-    @if (TransferService.ReceiverIp is not null &&
-         TransferService.ReceiverIp.Equals(Ip))
+    <div class="info">
+        <div class="name">
+            @Device
+        </div>
+        <div class="ip">
+            @Device.Ip
+        </div>
+    </div>
+
+    @if (TransferService.ReceiverIp is not null
+    && TransferService.ReceiverIp.Equals(Device.Ip))
     {
         <div class="cancel-btn" @onclick="TransferService.StopSending">
             <i class="ph ph-x-circle"></i>
@@ -31,7 +40,7 @@
     <div class="send-btn @sendBtnClass" @ref="ElementSendBtn"
          @onclick="@(() => {
             IsSendBtnVisible = false;
-            SendCallback.InvokeAsync(Ip);
+            SendCallback.InvokeAsync(Device.Ip);
         })">
         <i class="ph ph-arrow-fat-line-right"></i>
     </div>
@@ -39,7 +48,7 @@
 
 @code {
     [Parameter]
-    public IPAddress? Ip { get; set; }
+    public DeviceModel Device { get; set; } = null!;
 
     [Parameter]
     public EventCallback<IPAddress> SendCallback { get; set; }
@@ -59,4 +68,16 @@
     //         await jsModule.InvokeVoidAsync("Device.Init", ElementDevice, ElementSendBtn);
     //     }
     // }
+
+    private string GetDeviceIcon()
+    {
+        return Device?.Info.Type switch
+        {
+            DeviceModelType.Desktop => "<i class=\"ph ph-desktop-tower\"></i>",
+            DeviceModelType.Laptop => "<i class=\"ph ph-laptop\"></i>",
+            DeviceModelType.Mobile => "<i class=\"ph ph-device-mobile\"></i>",
+            DeviceModelType.Tablet => "<i class=\"ph ph-device-tablet\"></i>",
+            _ => "<i class=\"ph ph-question\"></i>",
+        };
+    }
 }

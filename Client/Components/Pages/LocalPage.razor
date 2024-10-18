@@ -4,6 +4,7 @@
 @using System.Net.Sockets
 @using System.Text
 @inject ILocalNetworkService lns
+@inject INetworkInfoService nis
 @inject IStorageService storage
 @inject IJSRuntime js
 @inject NavigationService NavigationService
@@ -35,7 +36,7 @@
     <div class="container">
         <div class="top-panel">
             <select class="select" @bind="SelectedIp" @bind:after="IpChanged">
-                @foreach (var ip in IPs)
+                @foreach (var ip in NetworkInterfaceIPs)
                 {
                     <option value="@ip" selected="@(ip.ToString() == SelectedIp)">@ip.ToString()</option>
                 }
@@ -49,16 +50,16 @@
         {
             <div class="devices">
                 <div class="devices-area">
-                    @foreach (var ip in LocalIPs)
+                @foreach (var device in Devices)
                     {
-                        <DeviceComponent Ip="@ip" SendCallback="StartSending"></DeviceComponent>
+                    <DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
                     }
                 </div>
             </div>
         }
 
         <div class="message">
-            @if (IPs.Count == 0)
+            @if (NetworkInterfaceIPs.Count == 0)
             {
                 @("Could not find interfaces with default gateway")
             }
@@ -72,15 +73,15 @@
 </div>
 
 @code {
-    public List<IPAddress> IPs { get; set; } = new();
+    public List<IPAddress> NetworkInterfaceIPs { get; set; } = new();
 
     public List<IPAddress> Gateways { get; set; } = new();
 
     public List<IPAddress> LocalIPs { get; set; } = new();
 
-    public string? SelectedIp { get; set; }
+    public List<DeviceModel> Devices { get; set; } = new();
 
-    public bool Supported { get; set; }
+    public string SelectedIp { get; set; } = null!;
 
     public bool Loading { get; set; }
 
@@ -103,117 +104,35 @@
     protected override async Task OnInitializedAsync()
     {
         Listening = TransferService.IsListening;
+
         TransferService.ListeningStarted += ListeningStarted;
         TransferService.ListeningStopped += ListeningStopped;
-        await Task.Run(async () =>
-        {
-            IPs = lns.GetAllHostIpAddressesWithGateway();
-            GetGateways();
-            var selectedIp = IPs
-                .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
-            Supported = selectedIp is null ? false : true;
-            SelectedIp ??= selectedIp?.ToString();
-            await PingLocalIPs(selectedIp);
-        });
-    }
 
-    private void GetGateways()
-    {
-        Gateways.Clear();
-        foreach (var ip in IPs)
-        {
-            IPAddress? gateway = lns.GetGatewayByIp(ip);
-            if (gateway is not null)
-            {
-                Gateways.Add(gateway);
-            }
-        }
-    }
+        lns.DeviceFound += OnDeviceFound;
 
-    private async Task PingLocalIPs(IPAddress? ip)
-    {
-        if (ip is null)
-            return;
+        NetworkInterfaceIPs = nis.GetNetworkInterfaceIPAddresses();
+        SelectedIp = NetworkInterfaceIPs.First().ToString();
 
-        LocalIPs.Clear();
-        IPAddress? mask = lns.GetSubnetMaskByIp(ip);
-
-        if (mask is null || mask.GetAddressBytes().Count(b => b == 0) > 2)
-            return;
-
-        Loading = true;
-        await InvokeAsync(StateHasChanged);
-
-        IPAddress network = lns.GetNetworkAddress(ip, mask);
-
-        byte[] hosts = mask.GetAddressBytes().Select(b => (byte)(byte.MaxValue - b)).ToArray();
-
-        List<Task> pings = new List<Task>();
-
-        byte[] init = new byte[4];
-        while (!hosts.SequenceEqual(init))
-        {
-            for (int i = 3; i >= 0; i--)
-            {
-                if (init[i]++ == 255) continue;
-                break;
+        await lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
             }
 
-            var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
-
-            pings.Add(PingHost(host));
+    private void OnDeviceFound(object? sender, DeviceModel device)
+    {
+        Devices.Add(device);
+        StateHasChanged();
         }
 
-        await Task.WhenAll(pings);
-        Loading = true;
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task PingHost(IPAddress host)
+    private async Task IpChanged()
     {
-        Ping pingSender = new Ping();
-        PingReply pr = await pingSender.SendPingAsync(host, 10_000);
-
-        if (pr.Status == IPStatus.Success &&
-            !IPs.Contains(pr.Address) &&
-            !Gateways.Contains(pr.Address) &&
-            !LocalIPs.Contains(pr.Address))
-        {
-            LocalIPs.Add(pr.Address);
-            await InvokeAsync(StateHasChanged);
+        IPAddress ip = IPAddress.Parse(SelectedIp);
+        await RefreshIps();
         }
-    }
 
-    private void IpChanged()
+    private async Task RefreshIps()
     {
-        IPAddress? ip = SelectedIp is null ? null : IPAddress.Parse(SelectedIp);
-        Supported = ip is null || lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) > 2 ? false : true;
-        if (Supported)
-        {
-            Task.Run(() => PingLocalIPs(ip));
-        }
-    }
-
-    private void RefreshIps()
-    {
-        IPAddress? ip = SelectedIp is null ? null : IPAddress.Parse(SelectedIp);
         LocalIPs.Clear();
-        Task.Run(() => PingLocalIPs(ip));
-    }
-
-    private async Task RefreshAll()
-    {
-        await Task.Run(async () =>
-        {
-            IPs.Clear();
-            IPs.AddRange(lns.GetAllHostIpAddressesWithGateway());
-            GetGateways();
-            var selectedIp = IPs
-                .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
-            Supported = selectedIp is null ? false : true;
-            SelectedIp ??= selectedIp?.ToString();
-            await PingLocalIPs(selectedIp);
-        });
+        Devices.Clear();
+        await lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
     }
 
     private async Task StartListening()

@@ -1,6 +1,7 @@
 ﻿@using System.Net
 @inherits LayoutComponentBase
 @inject NavigationService NavigationService
+@inject ILocalNetworkService lns
 @inject IStorageService StorageService
 @inject LocalTransferService TransferService
 
@@ -43,6 +44,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // listening for the incoming requests while the app is running
+        _ = lns.StartMulticastListeningAsync();
+
         TransferService.OnSendFilesRequest = ShowRequest;
 
         TransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;

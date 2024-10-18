@@ -8,6 +8,7 @@ namespace Client
         public static void AddBusinessLogicLayer(this IServiceCollection services)
         {
             services.AddScoped<NavigationService>();
+            services.AddScoped<ILocalNetworkService, LocalNetworkService>();
 
             services.AddSingleton<LocalTransferService>();
 
