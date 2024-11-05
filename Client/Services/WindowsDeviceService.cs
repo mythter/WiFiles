@@ -1,5 +1,6 @@
 ﻿#if WINDOWS
 using System.Management;
+using Client.Constants;
 using Client.Enums;
 using Client.Interfaces;
 using Client.Models;
@@ -10,12 +11,13 @@ namespace Client.Services
     {
         public DeviceInfoModel GetCurrentDeviceInfo()
         {
+            Guid id = DeviceConstants.Id;
             string name = Environment.MachineName;
             string model = DeviceInfo.Current.Model;
             string manufacturer = DeviceInfo.Current.Manufacturer;
             DeviceModelType type = GetDeviceType();
 
-            return new DeviceInfoModel(name, type, model, manufacturer);
+            return new DeviceInfoModel(id, name, type, model, manufacturer);
         }
 
         private static DeviceModelType GetDeviceType()

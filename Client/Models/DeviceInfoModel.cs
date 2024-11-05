@@ -5,6 +5,8 @@ namespace Client.Models
 {
     public class DeviceInfoModel
     {
+        public Guid Id { get; }
+
         public string Name { get; set; }
 
         public string? Model { get; set; }
@@ -13,13 +15,19 @@ namespace Client.Models
 
         public DeviceModelType Type { get; set; }
 
-        public DeviceInfoModel(string name)
+        public DeviceInfoModel(Guid id, string name)
         {
+            Id = id;
             Name = name;
         }
 
         [JsonConstructor]
-        public DeviceInfoModel(string name, DeviceModelType type, string? model = null, string? manufacturer = null) : this(name)
+        public DeviceInfoModel(
+            Guid id,
+            string name,
+            DeviceModelType type,
+            string? model = null,
+            string? manufacturer = null) : this(id, name)
         {
             Model = model;
             Manufacturer = manufacturer;

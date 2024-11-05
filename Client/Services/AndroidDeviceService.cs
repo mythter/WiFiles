@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Client.Constants;
 using Client.Enums;
 using Client.Interfaces;
 using Client.Models;
@@ -10,6 +11,7 @@ namespace Client.Services
         [SuppressMessage("Major Code Smell", "S3358:Ternary operators should not be nested", Justification = "It looks good")]
         public DeviceInfoModel GetCurrentDeviceInfo()
         {
+            Guid id = DeviceConstants.Id;
             string name = DeviceInfo.Current.Name;
             string model = DeviceInfo.Current.Model;
             string manufacturer = DeviceInfo.Current.Manufacturer;
@@ -19,7 +21,7 @@ namespace Client.Services
                 DeviceInfo.Current.Idiom == DeviceIdiom.Tablet ? DeviceModelType.Tablet :
                 DeviceModelType.Unknown;
 
-            return new DeviceInfoModel(name, type, model, manufacturer);
+            return new DeviceInfoModel(id, name, type, model, manufacturer);
         }
     }
 }
