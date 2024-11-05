@@ -68,8 +68,9 @@
     {
         if (firstRender)
         {
-            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/FileComponent.razor.js");
-            await jsModule.InvokeVoidAsync("FileComponent.Init", ElementInfo, ElementName, ElementPath);
+            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
+            await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementInfo, ElementName);
+            await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementInfo, ElementPath);
         }
     }
 

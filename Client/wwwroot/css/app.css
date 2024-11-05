@@ -26,3 +26,18 @@
     gap: 5px;
     box-sizing: border-box;
 }
+
+.running-text {
+    animation: moving infinite linear alternate;
+    animation-delay: 3s;
+}
+
+@keyframes moving {
+    from {
+        transform: translateX(0%);
+    }
+
+    to {
+        transform: translateX(calc(-100% + var(--container-width)));
+    }
+}

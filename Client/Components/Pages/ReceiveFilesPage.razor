@@ -69,18 +69,9 @@
     {
         if (firstRender)
         {
-            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/ReceiveFilesPage.razor.js");
-            await jsModule.InvokeVoidAsync("ReceiveFilesPage.Init", ElementFolderContainer, ElementFolder);
-        }
+            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
+            await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementFolderContainer, ElementFolder);
     }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // await InvokeAsync(StateHasChanged);
-        if (jsModule is not null)
-        {
-            await jsModule.InvokeVoidAsync("ReceiveFilesPage.FolderChanged", ElementFolderContainer, ElementFolder);
-        }
     }
 
     private async Task PickFolder()
@@ -103,6 +94,7 @@
         if (!string.IsNullOrEmpty(path))
         {
             await SetFolder.InvokeAsync(path);
+            await jsModule.InvokeVoidAsync("RunningTextAnimation.CheckAnimation", ElementFolder, ElementFolderContainer);
         }
     }
 

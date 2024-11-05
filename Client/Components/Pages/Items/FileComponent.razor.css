@@ -59,18 +59,3 @@
 .selected {
     --bg-color: #5d6594;
 }
-
-.running-text {
-    animation: moving infinite linear alternate;
-    animation-delay: 3s;
-}
-
-@keyframes moving {
-    from {
-        transform: translateX(0%);
-    }
-
-    to {
-        transform: translateX(calc(-100% + var(--info-width)));
-    }
-}
