@@ -39,10 +39,6 @@ namespace Client.Services
 
             _listening = true;
 
-            //_udpListener.JoinMulticastGroup(NetworkConstants.MulticastIP, _networkInfoService.GetNetworkInterfaceIPAddresses()[0]);
-            //_udpListener.JoinMulticastGroup(NetworkConstants.MulticastIP, _networkInfoService.GetNetworkInterfaceIPAddresses()[1]);
-            //_udpListener.JoinMulticastGroup(NetworkConstants.MulticastIP);
-
             foreach (var ip in _networkInfoService.GetNetworkInterfaceIPAddresses())
             {
                 _udpListener.JoinMulticastGroup(NetworkConstants.MulticastIP, ip);
@@ -51,17 +47,21 @@ namespace Client.Services
             _udpListener.Client.Bind(new IPEndPoint(IPAddress.Any, NetworkConstants.Port));
 
             // on Windows only when this is setted it doesn't receive request from itself
-            _udpListener.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastLoopback, false);
+            _udpListener.MulticastLoopback = false;
 
             while (_listening)
             {
                 try
                 {
                     var udpResult = await _udpListener.ReceiveAsync();
-                    var message = Encoding.UTF8.GetString(udpResult.Buffer);
+                    var deviceInfo = GetDeviceInfoFromByteArray(udpResult.Buffer);
 
-                    if (message == NetworkConstants.MulticastRequestMessage)
+                    // check if request is not coming from the current device
+                    if (deviceInfo is not null && deviceInfo.Id != DeviceConstants.Id)
                     {
+                        var device = new DeviceModel(udpResult.RemoteEndPoint.Address, deviceInfo);
+                        DeviceFound?.Invoke(this, device);
+
                         await SendMulticastResponseAsync(udpResult.RemoteEndPoint);
                     }
                 }
@@ -96,12 +96,9 @@ namespace Client.Services
                 networkInterfaceAddress.GetAddressBytes());
 
             // on Android only when this is setted it doesn't receive request from itself
-            udpClient.Client.SetSocketOption(
-                SocketOptionLevel.IP,
-                SocketOptionName.MulticastLoopback,
-                false);
+            udpClient.MulticastLoopback = false;
 
-            var messageBytes = Encoding.UTF8.GetBytes(NetworkConstants.MulticastRequestMessage);
+            var messageBytes = GetCurrentDeviceInfoBytes();
             var multicastEndPoint = new IPEndPoint(NetworkConstants.MulticastIP, NetworkConstants.Port);
 
             await udpClient.SendAsync(messageBytes, messageBytes.Length, multicastEndPoint);
@@ -132,10 +129,7 @@ namespace Client.Services
 
         private async Task SendMulticastResponseAsync(IPEndPoint requestEndpoint)
         {
-            var device = _deviceService.GetCurrentDeviceInfo();
-            var json = JsonSerializer.Serialize(device);
-            var responseBytes = Encoding.UTF8.GetBytes(json);
-
+            var responseBytes = GetCurrentDeviceInfoBytes();
             await _udpListener.SendAsync(responseBytes, responseBytes.Length, requestEndpoint);
         }
 
@@ -146,8 +140,7 @@ namespace Client.Services
                 while (true)
                 {
                     var result = await udpClient.ReceiveAsync(cancellationToken);
-                    var responseMessage = Encoding.UTF8.GetString(result.Buffer);
-                    var deviceInfo = JsonSerializer.Deserialize<DeviceInfoModel>(responseMessage);
+                    var deviceInfo = GetDeviceInfoFromByteArray(result.Buffer);
 
                     if (deviceInfo is not null)
                     {
@@ -160,6 +153,19 @@ namespace Client.Services
             {
                 // cancelled by timeout
             }
+        }
+
+        private byte[] GetCurrentDeviceInfoBytes()
+        {
+            var device = _deviceService.GetCurrentDeviceInfo();
+            var json = JsonSerializer.Serialize(device);
+            return Encoding.UTF8.GetBytes(json);
+        }
+
+        private static DeviceInfoModel? GetDeviceInfoFromByteArray(byte[] bytes)
+        {
+            var json = Encoding.UTF8.GetString(bytes);
+            return JsonSerializer.Deserialize<DeviceInfoModel>(json);
         }
     }
 }
