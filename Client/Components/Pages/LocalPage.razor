@@ -20,7 +20,10 @@
                  Count="SendFiles.Count">
         <i class="ph ph-upload-simple"></i>
     </BadgeButton>
-    <RealToggleButton Class="left" IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
+    <RealButton Class="left" OnClick="@RefreshIps">
+        <i class="ph ph-arrows-clockwise"></i>
+    </RealButton>
+    <RealToggleButton IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
         @if (Listening)
         {
             <i class="ph ph-ear"></i>
@@ -41,31 +44,21 @@
                     <option value="@ip" selected="@(ip.ToString() == SelectedIp)">@ip.ToString()</option>
                 }
             </select>
-            <div class="refresh" @onclick="RefreshIps">
-                <i class="ph ph-arrows-clockwise"></i>
-            </div>
         </div>
 
-        @if (Supported)
-        {
-            <div class="devices">
-                <div class="devices-area">
+        <div class="devices">
+            <div class="devices-area">
                 @foreach (var device in Devices)
-                    {
+                {
                     <DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
-                    }
-                </div>
+                }
             </div>
-        }
+        </div>
 
         <div class="message">
             @if (NetworkInterfaceIPs.Count == 0)
             {
                 @("Could not find interfaces with default gateway")
-            }
-            else if (!Supported)
-            {
-                @("Networks with more than 65534 hosts are not currently supported")
             }
         </div>
 
@@ -114,19 +107,22 @@
         SelectedIp = NetworkInterfaceIPs.First().ToString();
 
         await lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
-            }
+    }
 
     private void OnDeviceFound(object? sender, DeviceModel device)
     {
-        Devices.Add(device);
-        StateHasChanged();
+        if (!Devices.Exists(d => d.Ip.Equals(device.Ip)))
+        {
+            Devices.Add(device);
+            StateHasChanged();
         }
+    }
 
     private async Task IpChanged()
     {
         IPAddress ip = IPAddress.Parse(SelectedIp);
         await RefreshIps();
-        }
+    }
 
     private async Task RefreshIps()
     {
@@ -140,7 +136,7 @@
         if (SaveFolder is null)
         {
             MessageBoxElement.ShowError(
-                "You need to select destination folder before receiving files.", 
+                "You need to select destination folder before receiving files.",
                 "Destination folder not selected");
             return;
         }
