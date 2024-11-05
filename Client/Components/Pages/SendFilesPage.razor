@@ -10,9 +10,9 @@
     </RealButton>
     @if (SelectedFiles.Count > 0)
     {
-        <BadgeButton OnClick="@RemoveFiles">
+        <RealButton OnClick="@RemoveFiles">
             <i class="ph ph-trash"></i>
-        </BadgeButton>
+        </RealButton>
     }
     <BadgeButton Class="transparent left" OnClick="NavigationService.NavigateBack">
         <i class="ph ph-arrow-left"></i>
@@ -28,7 +28,7 @@
     @if (SendFiles.Count == 0)
     {
         <div class="message">
-            @("Select files you wand to send")
+            @("Select files you want to send")
         </div>
     }
 </div>

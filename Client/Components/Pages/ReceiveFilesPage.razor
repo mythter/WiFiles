@@ -12,9 +12,9 @@
     </RealButton>
     @if (TransferService.IsReceiving)
     {
-        <BadgeButton OnClick="@TransferService.StopReceiving">
+        <RealButton OnClick="@TransferService.StopReceiving">
             <i class="ph ph-x"></i>
-        </BadgeButton>
+        </RealButton>
     }
     <BadgeButton Class="transparent left" OnClick="@NavigationService.NavigateBack">
         <i class="ph ph-arrow-left"></i>
@@ -71,7 +71,7 @@
         {
             jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
             await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementFolderContainer, ElementFolder);
-    }
+        }
     }
 
     private async Task PickFolder()
