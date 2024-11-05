@@ -8,8 +8,6 @@ namespace Client.Constants
 
         public static readonly IPAddress MulticastIP = new IPAddress(new byte[] { 224, 0, 0, 171 });
 
-        public const string MulticastRequestMessage = "Request from WiFiles";
-
         public const int MulticastScanResponseTimeout = 10_000;
     }
 }
