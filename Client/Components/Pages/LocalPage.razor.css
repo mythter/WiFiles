@@ -26,6 +26,7 @@
     .top-panel .select {
         flex: 1;
         border-radius: 5px;
+        min-height: 25px;
     }
 
     .top-panel .refresh {
