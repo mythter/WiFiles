@@ -14,6 +14,12 @@
             <i class="ph ph-trash"></i>
         </RealButton>
     }
+    else if (SendFiles.Count > 0)
+    {
+        <RealButton OnClick="@ClearFiles">
+            <i class="ph ph-broom"></i>
+        </RealButton>
+    }
     <BadgeButton Class="transparent left" OnClick="NavigationService.NavigateBack">
         <i class="ph ph-arrow-left"></i>
     </BadgeButton>
@@ -93,6 +99,11 @@
         }
 
         SelectedFiles.Clear();
+    }
+
+    private void ClearFiles()
+    {
+        SendFiles.Clear();
     }
 
     private void OnFileClick(FileModel file)
