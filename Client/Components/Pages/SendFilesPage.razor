@@ -26,9 +26,9 @@
 </header>
 
 <div class="files">
-    @foreach (FileModel file in SendFiles)
+    @foreach (var file in SendFiles.Select((f, i) => new { File = f, Index = i }))
     {
-        <FileComponent @key="@file" File="@file" OnClick="OnFileClick"></FileComponent>
+        <FileComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileComponent>
     }
 
     @if (SendFiles.Count == 0)
@@ -47,6 +47,9 @@
     private MessageBox MessageBoxElement { get; set; }
 
     public List<FileModel> SelectedFiles { get; set; } = new();
+
+    // needed to reload animation after rerender
+    private string uniqueSuffix = Guid.NewGuid().ToString();
 
     private async Task PickFiles()
     {
@@ -99,6 +102,7 @@
         }
 
         SelectedFiles.Clear();
+        uniqueSuffix = Guid.NewGuid().ToString();
     }
 
     private void ClearFiles()
