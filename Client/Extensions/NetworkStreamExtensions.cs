@@ -10,13 +10,10 @@ namespace Client.Extensions
             int timeout, 
             CancellationToken cancellationToken)
         {
-            Task<int> readTask = stream.ReadAsync(buffer, 0 ,buffer.Length, cancellationToken);
+            using var readCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(readCts.Token, cancellationToken);
 
-            await Task.WhenAny(readTask, Task.Delay(timeout, cancellationToken));
-
-            if (!readTask.IsCompletedSuccessfully)
-            {
-                throw new OperationCanceledException("Sender or you disconnected.");
+            return await stream.ReadAsync(buffer, linkedCts.Token);
             }
 
             return await readTask;
@@ -28,9 +25,10 @@ namespace Client.Extensions
             int timeout,
             CancellationToken cancellationToken)
         {
-            Task writeTask = stream.WriteAsync(buffer, 0, buffer.Length, cancellationToken);
+            using var writeCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(writeCts.Token, cancellationToken);
 
-            await Task.WhenAny(writeTask, Task.Delay(timeout, cancellationToken));
+            await stream.WriteAsync(buffer, linkedCts.Token);
 
             if (!writeTask.IsCompletedSuccessfully)
             {
