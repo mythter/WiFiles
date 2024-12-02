@@ -9,15 +9,16 @@
 @inject IJSRuntime js
 @inject NavigationService NavigationService
 @inject LocalTransferService TransferService
+@inject IStorageService StorageService
 @implements IDisposable
 
 <header class="header">
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
-                 Count="ReceivedFiles.Count">
+                 Count="StorageService.ReceivedFiles.Count">
         <i class="ph ph-download-simple"></i>
     </BadgeButton>
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
-                 Count="SendFiles.Count">
+                 Count="StorageService.SendFiles.Count">
         <i class="ph ph-upload-simple"></i>
     </BadgeButton>
     <RealButton Class="left" OnClick="@RefreshIps">
@@ -80,15 +81,6 @@
 
     public bool Listening { get; set; }
 
-    [CascadingParameter(Name = "SendFiles")]
-    public List<FileModel> SendFiles { get; set; } = null!;
-
-    [CascadingParameter(Name = "ReceivedFiles")]
-    public List<FileModel> ReceivedFiles { get; set; } = null!;
-
-    [CascadingParameter(Name = "SaveFolder")]
-    public string? SaveFolder { get; set; }
-
     IJSObjectReference jsModule = null!;
 
     [CascadingParameter(Name = "MessageBox")]
@@ -133,15 +125,7 @@
 
     private async Task StartListening()
     {
-        if (SaveFolder is null)
-        {
-            MessageBoxElement.ShowError(
-                "You need to select destination folder before receiving files.",
-                "Destination folder not selected");
-            return;
-        }
-
-        if (SaveFolder is null)
+        if (!StorageService.CheckIfDirectoryWritable(StorageService.SaveFolder))
         {
             MessageBoxElement.ShowError(
                 "Saving to the selected folder is not currently supported. Please select another folder.",
@@ -159,13 +143,13 @@
 
     private async Task StartSending(IPAddress ip)
     {
-        if (SendFiles.Count == 0)
+        if (StorageService.SendFiles.Count == 0)
         {
             MessageBoxElement.ShowWarning("You have no files to send.");
             return;
         }
 
-        await TransferService.StartSendingAsync(ip, SendFiles);
+        await TransferService.StartSendingAsync(ip, new List<FileModel>(StorageService.SendFiles));
     }
 
     private void ListeningStarted(object? sender, EventArgs e)

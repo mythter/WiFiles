@@ -6,15 +6,12 @@
 @inject LocalTransferService TransferService
 
 <CascadingValue Value="@MessageBoxElement" Name="MessageBox">
-    <CascadingValue Value="@SendFiles" Name="SendFiles">
-        <CascadingValue Value="@ReceivedFiles" Name="ReceivedFiles">
-            <CascadingValue Value="@SaveFolder" Name="SaveFolder">
-                <CascadingValue Value="@SetFolder" Name="SetFolder">
-                    <div class="page">
-                        <main class="main">
-                            @Body
-                        </main>
-                        @* <div class="menu">
+    <CascadingValue Value="@SaveFolder" Name="SaveFolder">
+        <div class="page">
+            <main class="main">
+                @Body
+            </main>
+            @* <div class="menu">
                         <div class="item">
                         Local
                         </div>
@@ -22,23 +19,14 @@
                         Global
                         </div>
                         </div> *@
-                    </div>
-                </CascadingValue>
-            </CascadingValue>
-        </CascadingValue>
+        </div>
     </CascadingValue>
 </CascadingValue>
 
 <MessageBox @ref="MessageBoxElement"></MessageBox>
 
 @code {
-    public List<FileModel> SendFiles { get; set; } = new();
-
-    public List<FileModel> ReceivedFiles { get; set; } = new();
-
     public string? SaveFolder { get; set; }
-
-    public EventCallback<string> SetFolder { get; set; }
 
     private MessageBox MessageBoxElement = null!;
 
@@ -60,7 +48,6 @@
         SaveFolder = StorageService.GetDefaultFolder();
         TransferService.SaveFolder = SaveFolder;
 
-        SetFolder = EventCallback.Factory.Create<string>(this, OnSetFolder);
         NavigationService.NavigateTo("local");
     }
 
@@ -94,17 +81,17 @@
 
     private void AddReceivingFile(object? sender, FileModel file)
     {
-        ReceivedFiles.Add(file);
+        StorageService.ReceivedFiles.Add(file);
         InvokeAsync(StateHasChanged);
     }
 
     private void RemoveReceivingFile(object? sender, string filePath)
     {
-        for (int i = 0; i < ReceivedFiles.Count; i++)
+        for (int i = 0; i < StorageService.ReceivedFiles.Count; i++)
         {
-            if (ReceivedFiles[i].Path == filePath)
+            if (StorageService.ReceivedFiles[i].Path == filePath)
             {
-                ReceivedFiles.Remove(ReceivedFiles[i]);
+                StorageService.ReceivedFiles.Remove(StorageService.ReceivedFiles[i]);
             }
         }
         InvokeAsync(StateHasChanged);

@@ -24,16 +24,16 @@
 <div class="container">
     <div class="folder" @ref=ElementFolderContainer>
         <div class="folder-area" @ref=ElementFolder @onclick="@PickFolder">
-            @Folder
+            @StorageService.SaveFolder
         </div>
     </div>
     <div class="files">
-        @foreach (var file in ReceivedFiles)
+        @foreach (var file in StorageService.ReceivedFiles)
         {
             <FileComponent File="@file"></FileComponent>
         }
 
-        @if (ReceivedFiles.Count == 0)
+        @if (StorageService.ReceivedFiles.Count == 0)
         {
             <div class="message">
                 @("You haven't received any files yet")
@@ -43,15 +43,6 @@
 </div>
 
 @code {
-    [CascadingParameter(Name = "SaveFolder")]
-    public string? Folder { get; set; }
-
-    [CascadingParameter(Name = "SetFolder")]
-    public EventCallback<string> SetFolder { get; set; }
-
-    [CascadingParameter(Name = "ReceivedFiles")]
-    public List<FileModel> ReceivedFiles { get; set; }
-
     [CascadingParameter(Name = "MessageBox")]
     public MessageBox MessageBoxElement { get; set; }
 
@@ -83,7 +74,7 @@
             return;
         }
 
-        if (!StorageService.CheckIsDirectoryWritable(path))
+        if (!StorageService.CheckIfDirectoryWritable(path))
         {
             MessageBoxElement.ShowError(
                 "Saving to the selected folder is not currently supported. Please select another folder.",
@@ -91,9 +82,9 @@
             return;
         }
 
-        if (!string.IsNullOrEmpty(path))
+        if (StorageService.TrySetSaveFolder(path))
         {
-            await SetFolder.InvokeAsync(path);
+            StateHasChanged();
             await jsModule.InvokeVoidAsync("RunningTextAnimation.CheckAnimation", ElementFolder, ElementFolderContainer);
         }
     }

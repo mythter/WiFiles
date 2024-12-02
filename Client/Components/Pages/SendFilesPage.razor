@@ -14,7 +14,7 @@
             <i class="ph ph-trash"></i>
         </RealButton>
     }
-    else if (SendFiles.Count > 0)
+    else if (StorageService.SendFiles.Count > 0)
     {
         <RealButton OnClick="@ClearFiles">
             <i class="ph ph-broom"></i>
@@ -26,12 +26,12 @@
 </header>
 
 <div class="files">
-    @foreach (var file in SendFiles.Select((f, i) => new { File = f, Index = i }))
+    @foreach (var file in StorageService.SendFiles.Select((f, i) => new { File = f, Index = i }))
     {
         <FileComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileComponent>
     }
 
-    @if (SendFiles.Count == 0)
+    @if (StorageService.SendFiles.Count == 0)
     {
         <div class="message">
             @("Select files you want to send")
@@ -40,9 +40,6 @@
 </div>
 
 @code {
-    [CascadingParameter(Name = "SendFiles")]
-    private List<FileModel> SendFiles { get; set; }
-
     [CascadingParameter(Name = "MessageBox")]
     private MessageBox MessageBoxElement { get; set; }
 
@@ -63,18 +60,18 @@
         List<string> pickedFiles = await StorageService.PickFilesAsync();
         foreach (var filePath in pickedFiles)
         {
-            if (!StorageService.CheckIsFileReadable(filePath))
+            if (!StorageService.CheckIfFileReadable(filePath))
             {
                 notreadableFiles.AppendLine(filePath);
                 continue;
             }
 
             if (!string.IsNullOrEmpty(filePath) &&
-                !SendFiles.Any(f => f.Path == filePath))
+                !StorageService.SendFiles.Any(f => f.Path == filePath))
             {
                 long fileSize = new FileInfo(filePath).Length;
                 FileModel file = new FileModel(filePath, fileSize);
-                SendFiles.Add(file);
+                StorageService.SendFiles.Add(file);
             }
         }
 
@@ -98,7 +95,7 @@
 
         foreach (FileModel f in SelectedFiles)
         {
-            SendFiles.Remove(f);
+            StorageService.SendFiles.Remove(f);
         }
 
         SelectedFiles.Clear();
@@ -107,7 +104,7 @@
 
     private void ClearFiles()
     {
-        SendFiles.Clear();
+        StorageService.SendFiles.Clear();
     }
 
     private void OnFileClick(FileModel file)
