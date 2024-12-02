@@ -16,12 +16,12 @@ namespace Client
             services.AddSingleton<INetworkInfoService, AndroidNetworkInfoService>();
             services.AddSingleton<IDeviceService, AndroidDeviceService>();
 
-            services.AddScoped<IStorageService, AndroidStorageService>();
+            services.AddSingleton<IStorageService, AndroidStorageService>();
 #elif WINDOWS
             services.AddSingleton<INetworkInfoService, WindowsNetworkInfoService>();
             services.AddSingleton<IDeviceService, WindowsDeviceService>();
 
-            services.AddScoped<IStorageService, WindowsStorageService>();
+            services.AddSingleton<IStorageService, WindowsStorageService>();
 #endif
         }
     }
