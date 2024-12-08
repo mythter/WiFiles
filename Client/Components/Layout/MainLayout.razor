@@ -81,17 +81,18 @@
 
     private void AddReceivingFile(object? sender, FileModel file)
     {
-        StorageService.ReceivedFiles.Add(file);
+        StorageService.ReceiveFiles.Add(file);
         InvokeAsync(StateHasChanged);
     }
 
     private void RemoveReceivingFile(object? sender, string filePath)
     {
-        for (int i = 0; i < StorageService.ReceivedFiles.Count; i++)
+        for (int i = StorageService.ReceiveFiles.Count - 1; i >= 0 ; i--)
         {
-            if (StorageService.ReceivedFiles[i].Path == filePath)
+            if (StorageService.ReceiveFiles[i].Path == filePath)
             {
-                StorageService.ReceivedFiles.Remove(StorageService.ReceivedFiles[i]);
+                StorageService.ReceiveFiles.Remove(StorageService.ReceiveFiles[i]);
+                break;
             }
         }
         InvokeAsync(StateHasChanged);

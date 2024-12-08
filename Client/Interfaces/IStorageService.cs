@@ -6,7 +6,7 @@ namespace Client.Interfaces
     {
         public string SaveFolder { get; }
         public SynchronizedCollection<FileModel> SendFiles { get; }
-        public SynchronizedCollection<FileModel> ReceivedFiles { get; }
+        public SynchronizedCollection<FileModel> ReceiveFiles { get; }
 
         public Task<List<string>> PickFilesAsync();
         public Task<string?> PickFolderAsync();

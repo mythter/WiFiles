@@ -28,12 +28,12 @@
         </div>
     </div>
     <div class="files">
-        @foreach (var file in StorageService.ReceivedFiles)
+        @foreach (var file in StorageService.ReceiveFiles)
         {
             <FileComponent File="@file"></FileComponent>
         }
 
-        @if (StorageService.ReceivedFiles.Count == 0)
+        @if (StorageService.ReceiveFiles.Count == 0)
         {
             <div class="message">
                 @("You haven't received any files yet")

@@ -14,7 +14,7 @@
 
 <header class="header">
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
-                 Count="StorageService.ReceivedFiles.Count">
+                 Count="StorageService.ReceiveFiles.Count">
         <i class="ph ph-download-simple"></i>
     </BadgeButton>
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"

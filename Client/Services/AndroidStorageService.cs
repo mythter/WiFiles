@@ -10,7 +10,7 @@ namespace Client.Services
 
         public SynchronizedCollection<FileModel> SendFiles { get; } = new();
 
-        public SynchronizedCollection<FileModel> ReceivedFiles { get; } = new();
+        public SynchronizedCollection<FileModel> ReceiveFiles { get; } = new();
 
         public AndroidStorageService()
         {
