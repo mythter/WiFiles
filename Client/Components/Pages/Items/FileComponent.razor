@@ -10,11 +10,11 @@
         @((MarkupString)GetFileIcon())
         @if (!string.IsNullOrEmpty(Status))
         {
-                <div class="status"> @Status </div>
+            <div class="status"> @Status </div>
         }
         else if (File.Status == TransferStatus.InProgress)
         {
-                <div class="progress"> @($"{Progress}%") </div>
+            <div class="progress"> @($"{Progress}%") </div>
         }
     </div>
     <div class="info" @ref=ElementInfo>
@@ -50,20 +50,19 @@
     {
         File.ProgressChanged += OnProgressChanged;
 
-
-        if (!System.IO.File.Exists(File.Path) && File.Status != TransferStatus.Failed)
+        switch (File.Status)
         {
-            Progress = -1;
-            Status = "Deleted";
-        }
-        else if (File.Status == TransferStatus.Finished)
-        {
-            Progress = 100;
-            Status = "Finished";
-        }
-        else
-        {
-            Progress = CalculateProgressPercent(File.CurrentProgress);
+            case TransferStatus.InProgress:
+                Progress = CalculateProgressPercent(File.CurrentProgress);
+                break;
+            case TransferStatus.Finished:
+                Progress = 100;
+                Status = "Finished";
+                break;
+            case TransferStatus.Failed:
+                Progress = -1;
+                Status = "Error";
+                break;
         }
     }
 
