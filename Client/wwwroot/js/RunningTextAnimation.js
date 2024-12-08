@@ -6,7 +6,6 @@
     static Init(container, element, animationSpeed = 12, animationDelay = 3000) {
         this.speed = animationSpeed;
         this.delay = animationDelay;
-        console.log("init", container, element, this.speed, this.delay);
         let containerWidth = this.GetContainerWidth(container);
         document.documentElement.style.setProperty("--container-width", containerWidth + "px");
 
@@ -20,7 +19,6 @@
     }
 
     static CheckAnimation(elem, container) {
-        console.log("check animation");
         let containerWidth = this.GetContainerWidth(container);
         elem.classList.remove("running-text");
         if (elem.clientWidth > containerWidth) {
