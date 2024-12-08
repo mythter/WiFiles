@@ -10,11 +10,11 @@
         @((MarkupString)GetFileIcon())
         @if (!string.IsNullOrEmpty(Status))
         {
-            <div class="status"> @Status </div>
+                <div class="status"> @Status </div>
         }
-        else if (File.Progress is not null)
+        else if (File.Status == TransferStatus.InProgress)
         {
-            <div class="progress"> @($"{Progress}%") </div>
+                <div class="progress"> @($"{Progress}%") </div>
         }
     </div>
     <div class="info" @ref=ElementInfo>
@@ -29,14 +29,14 @@
 
 @code {
     [Parameter]
-    public FileModel File { get; set; }
+    public FileModel File { get; set; } = null!;
 
     [Parameter]
     public EventCallback<FileModel> OnClick { get; set; }
 
     public bool IsSelected { get; set; }
 
-    public long Progress { get; set; }
+    public int Progress { get; set; }
 
     public string? Status { get; set; }
 
@@ -48,19 +48,22 @@
 
     protected override void OnInitialized()
     {
-        if (File?.Progress is not null)
-        {
-            File.Progress.ProgressChanged += OnProgressChanged;
-        }
+        File.ProgressChanged += OnProgressChanged;
 
-        if (!System.IO.File.Exists(File?.Path))
+
+        if (!System.IO.File.Exists(File.Path) && File.Status != TransferStatus.Failed)
         {
             Progress = -1;
             Status = "Deleted";
         }
-        else if (File is not null && new FileInfo(File.Path).Length == File.Size)
+        else if (File.Status == TransferStatus.Finished)
         {
             Progress = 100;
+            Status = "Finished";
+        }
+        else
+        {
+            Progress = CalculateProgressPercent(File.CurrentProgress);
         }
     }
 
@@ -76,12 +79,23 @@
 
     private void OnProgressChanged(object? sender, long progress)
     {
-        long percent = (long)(progress * 100 / File.Size);
-        if (Progress != percent)
+        int percent = CalculateProgressPercent(progress);
+
+        if (File.CurrentProgress == File.Size)
+        {
+            Progress = 100;
+            Status = "Finished";
+        }
+        else if (Progress != percent)
         {
             Progress = percent;
             InvokeAsync(StateHasChanged);
         }
+    }
+
+    private int CalculateProgressPercent(long progress)
+    {
+        return (int)(progress * 100 / File.Size);
     }
 
     private async Task OnClickHandler()
@@ -318,9 +332,6 @@
 
     public void Dispose()
     {
-        if (File?.Progress is not null)
-        {
-            File.Progress.ProgressChanged -= OnProgressChanged;
-        };
+        File.ProgressChanged -= OnProgressChanged;
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using Client.Enums;
 
 namespace Client.Models
 {
@@ -7,14 +8,26 @@ namespace Client.Models
         public string Path { get; set; }
         public long Size { get; set; }
         public IPAddress? Sender { get; set; }
-        public Progress<long>? Progress { get; set; }
+        public TransferStatus Status { get; set; }
 
-        public FileModel(string path, long size, IPAddress? sender = null, Progress<long>? progress = null)
+        private long currentProgress;
+        public long CurrentProgress
+        {
+            get => currentProgress;
+            set
+            {
+                currentProgress = value;
+                ProgressChanged?.Invoke(this, currentProgress);
+            }
+        }
+
+        public event EventHandler<long>? ProgressChanged;
+
+        public FileModel(string path, long size, IPAddress? sender = null)
         {
             Path = path;
             Size = size;
             Sender = sender;
-            Progress = progress;
         }
     }
 }
