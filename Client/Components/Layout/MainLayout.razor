@@ -6,27 +6,24 @@
 @inject LocalTransferService TransferService
 
 <CascadingValue Value="@MessageBoxElement" Name="MessageBox">
-    <CascadingValue Value="@SaveFolder" Name="SaveFolder">
-        <div class="page">
-            <main class="main">
-                @Body
-            </main>
-            @* <div class="menu">
-                        <div class="item">
-                        Local
-                        </div>
-                        <div class="item">
-                        Global
-                        </div>
-                        </div> *@
-        </div>
-    </CascadingValue>
+    <div class="page">
+        <main class="main">
+        @Body
+        </main>
+    @* <div class="menu">
+                    <div class="item">
+                    Local
+                    </div>
+                    <div class="item">
+                    Global
+                    </div>
+                    </div> *@
+    </div>
 </CascadingValue>
 
 <MessageBox @ref="MessageBoxElement"></MessageBox>
 
 @code {
-    public string? SaveFolder { get; set; }
 
     private MessageBox MessageBoxElement = null!;
 
@@ -44,9 +41,6 @@
         TransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
 
         TransferService.ExceptionHandled += ShowError;
-
-        SaveFolder = StorageService.GetDefaultFolder();
-        TransferService.SaveFolder = SaveFolder;
 
         NavigationService.NavigateTo("local");
     }
@@ -73,12 +67,6 @@
         MessageBoxElement.ShowInfo("All files sent successfully.", "Sending finished");
     }
 
-    private void OnSetFolder(string path)
-    {
-        SaveFolder = path;
-        TransferService.SaveFolder = path;
-    }
-
     private void AddReceivingFile(object? sender, FileModel file)
     {
         StorageService.ReceiveFiles.Add(file);
@@ -87,7 +75,7 @@
 
     private void RemoveReceivingFile(object? sender, string filePath)
     {
-        for (int i = StorageService.ReceiveFiles.Count - 1; i >= 0 ; i--)
+        for (int i = StorageService.ReceiveFiles.Count - 1; i >= 0; i--)
         {
             if (StorageService.ReceiveFiles[i].Path == filePath)
             {
