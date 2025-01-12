@@ -36,7 +36,7 @@ namespace Client.Extensions
             CancellationToken cancellationToken = default)
         {
             byte[] buffer = new byte[size];
-            await stream.ReadExactlyAsync(buffer, 0, size);
+            await stream.ReadExactlyAsync(buffer, 0, size, cancellationToken);
             return converter(buffer);
         }
 
@@ -66,6 +66,18 @@ namespace Client.Extensions
             CancellationToken cancellationToken = default)
         {
             return await stream.ReadAsync(Encoding.UTF8.GetString, size, cancellationToken);
+        }
+
+        public static async Task WriteBooleanAsync(
+            this NetworkStream stream,
+            bool value,
+            CancellationToken cancellationToken = default)
+        {
+            await stream.WriteAsync(
+                BitConverter.GetBytes(value),
+                0,
+                sizeof(bool),
+                cancellationToken);
         }
     }
 }
