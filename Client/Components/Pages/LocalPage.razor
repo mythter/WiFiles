@@ -14,11 +14,11 @@
 
 <header class="header">
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
-                 Count="StorageService.ReceiveFiles.Count">
+    Count="StorageService.ReceiveFiles.Count">
         <i class="ph ph-download-simple"></i>
     </BadgeButton>
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
-                 Count="StorageService.SendFiles.Count">
+    Count="StorageService.SendFiles.Count">
         <i class="ph ph-upload-simple"></i>
     </BadgeButton>
     <RealButton Class="left" OnClick="@RefreshIps">
@@ -27,11 +27,11 @@
     <RealToggleButton IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
         @if (Listening)
         {
-            <i class="ph ph-ear"></i>
+                <i class="ph ph-ear"></i>
         }
         else
         {
-            <i class="ph ph-ear-slash"></i>
+                <i class="ph ph-ear-slash"></i>
         }
     </RealToggleButton>
 </header>
@@ -51,7 +51,7 @@
             <div class="devices-area">
                 @foreach (var device in Devices)
                 {
-                    <DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
+                        <DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
                 }
             </div>
         </div>
@@ -95,10 +95,14 @@
 
         lns.DeviceFound += OnDeviceFound;
 
-        NetworkInterfaceIPs = nis.GetNetworkInterfaceIPAddresses();
-        SelectedIp = NetworkInterfaceIPs.First().ToString();
+        await Task.Run(() =>
+        {
+            NetworkInterfaceIPs = nis.GetNetworkInterfaceIPAddresses();
+            SelectedIp = NetworkInterfaceIPs.First().ToString();
+        });
+        StateHasChanged();
 
-        await lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
+        _ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
     }
 
     private void OnDeviceFound(object? sender, DeviceModel device)
