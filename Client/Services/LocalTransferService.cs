@@ -98,6 +98,10 @@ namespace Client.Services
             {
                 ExceptionHandled?.Invoke(this, "It seems the receiver cancelled the operation.");
             }
+            catch (TimeoutException)
+            {
+                ExceptionHandled?.Invoke(this, "Sending cacelled due to timeout.");
+            }
             catch (OperationCanceledException ex)
             {
                 // if operation cancelled not by us show error message
@@ -323,6 +327,10 @@ namespace Client.Services
                 await ReceiveFilesAsync(stream, request.Files, ReceivingTokenSource.Token);
 
                 ReceivingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
+            }
+            catch (TimeoutException)
+            {
+                ExceptionHandled?.Invoke(this, "Receiving cancelled due to timeout.");
             }
             catch (OperationCanceledException ex)
             {

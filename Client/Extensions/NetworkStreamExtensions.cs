@@ -14,7 +14,19 @@ namespace Client.Extensions
             using var readCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(readCts.Token, cancellationToken);
 
-            return await stream.ReadAsync(buffer, linkedCts.Token);
+            try
+            {
+                return await stream.ReadAsync(buffer, linkedCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                if (readCts.IsCancellationRequested)
+                {
+                    throw new TimeoutException();
+                }
+
+                throw;
+            }
         }
 
         public static async Task WriteWithTimeoutAsync(
@@ -26,7 +38,19 @@ namespace Client.Extensions
             using var writeCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(writeCts.Token, cancellationToken);
 
-            await stream.WriteAsync(buffer, linkedCts.Token);
+            try
+            {
+                await stream.WriteAsync(buffer, linkedCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                if (writeCts.IsCancellationRequested)
+                {
+                    throw new TimeoutException();
+                }
+
+                throw;
+            }
         }
 
         public static async Task<T> ReadAsync<T>(
