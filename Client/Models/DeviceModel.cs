@@ -1,28 +1,33 @@
-﻿using System.Net;
+﻿using System.Text.Json.Serialization;
 using Client.Enums;
 
 namespace Client.Models
 {
     public class DeviceModel
     {
-        public IPAddress Ip { get; set; }
+        public string Name { get; set; }
 
-        public DeviceInfoModel Info { get; set; }
+        public string? Model { get; set; }
 
-        public DeviceModel(IPAddress ip, DeviceInfoModel deviceInfo)
+        public string? Manufacturer { get; set; }
+
+        public DeviceModelType Type { get; set; }
+
+        public DeviceModel(string name)
         {
-            Ip = ip;
-            Info = deviceInfo;
+            Name = name;
         }
 
-        public override string ToString()
+        [JsonConstructor]
+        public DeviceModel(
+            string name,
+            DeviceModelType type,
+            string? model = null,
+            string? manufacturer = null) : this(name)
         {
-            return Info.Type switch
-            {
-                DeviceModelType.Desktop or
-                DeviceModelType.Laptop => Info.Model ?? Info.Name,
-                _ => Info.Name
-            };
+            Model = model;
+            Manufacturer = manufacturer;
+            Type = type;
         }
     }
 }

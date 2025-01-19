@@ -10,7 +10,7 @@ namespace Client.Services
 {
     public class LocalNetworkService : ILocalNetworkService, IDisposable
     {
-        public event EventHandler<DeviceModel>? DeviceFound;
+        public event EventHandler<LocalDeviceModel>? DeviceFound;
 
         private readonly IDeviceService _deviceService;
 
@@ -54,13 +54,13 @@ namespace Client.Services
                 try
                 {
                     var udpResult = await _udpListener.ReceiveAsync();
-                    var deviceInfo = GetDeviceInfoFromByteArray(udpResult.Buffer);
+                    var foundDevice = GetLocalDeviceFromByteArray(udpResult.Buffer);
 
                     // check if request is not coming from the current device
-                    if (deviceInfo is not null && deviceInfo.Id != DeviceConstants.Id)
+                    if (foundDevice is not null && foundDevice.Id != DeviceConstants.Id)
                     {
-                        var device = new DeviceModel(udpResult.RemoteEndPoint.Address, deviceInfo);
-                        DeviceFound?.Invoke(this, device);
+                        foundDevice.IP = udpResult.RemoteEndPoint.Address;
+                        DeviceFound?.Invoke(this, foundDevice);
 
                         await SendMulticastResponseAsync(udpResult.RemoteEndPoint);
                     }
@@ -98,7 +98,7 @@ namespace Client.Services
             // on Android only when this is setted it doesn't receive request from itself
             udpClient.MulticastLoopback = false;
 
-            var messageBytes = GetCurrentDeviceInfoBytes();
+            var messageBytes = GetCurrentLocalDeviceBytes();
             var multicastEndPoint = new IPEndPoint(NetworkConstants.MulticastIP, NetworkConstants.Port);
 
             await udpClient.SendAsync(messageBytes, messageBytes.Length, multicastEndPoint);
@@ -129,7 +129,7 @@ namespace Client.Services
 
         private async Task SendMulticastResponseAsync(IPEndPoint requestEndpoint)
         {
-            var responseBytes = GetCurrentDeviceInfoBytes();
+            var responseBytes = GetCurrentLocalDeviceBytes();
             await _udpListener.SendAsync(responseBytes, responseBytes.Length, requestEndpoint);
         }
 
@@ -137,15 +137,15 @@ namespace Client.Services
         {
             try
             {
-                while (true)
+                while (cancellationToken.IsCancellationRequested)
                 {
                     var result = await udpClient.ReceiveAsync(cancellationToken);
-                    var deviceInfo = GetDeviceInfoFromByteArray(result.Buffer);
+                    var foundDevice = GetLocalDeviceFromByteArray(result.Buffer);
 
-                    if (deviceInfo is not null)
+                    if (foundDevice is not null)
                     {
-                        var device = new DeviceModel(result.RemoteEndPoint.Address, deviceInfo);
-                        DeviceFound?.Invoke(this, device);
+                        foundDevice.IP = result.RemoteEndPoint.Address;
+                        DeviceFound?.Invoke(this, foundDevice);
                     }
                 }
             }
@@ -155,17 +155,17 @@ namespace Client.Services
             }
         }
 
-        private byte[] GetCurrentDeviceInfoBytes()
+        private byte[] GetCurrentLocalDeviceBytes()
         {
-            var device = _deviceService.GetCurrentDeviceInfo();
+            var device = new LocalDeviceModel(_deviceService.GetCurrentDeviceInfo());
             var json = JsonSerializer.Serialize(device);
             return Encoding.UTF8.GetBytes(json);
         }
 
-        private static DeviceInfoModel? GetDeviceInfoFromByteArray(byte[] bytes)
+        private static LocalDeviceModel? GetLocalDeviceFromByteArray(byte[] bytes)
         {
             var json = Encoding.UTF8.GetString(bytes);
-            return JsonSerializer.Deserialize<DeviceInfoModel>(json);
+            return JsonSerializer.Deserialize<LocalDeviceModel>(json);
         }
     }
 }

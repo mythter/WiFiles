@@ -25,12 +25,12 @@
             @Device
         </div>
         <div class="ip">
-            @Device.Ip
+            @Device.IP
         </div>
     </div>
 
     @if (TransferService.ReceiverIp is not null
-    && TransferService.ReceiverIp.Equals(Device.Ip))
+    && TransferService.ReceiverIp.Equals(Device.IP))
     {
         <div class="cancel-btn" @onclick="TransferService.StopSending">
             <i class="ph ph-x-circle"></i>
@@ -40,7 +40,7 @@
     <div class="send-btn @sendBtnClass" @ref="ElementSendBtn"
          @onclick="@(() => {
             IsSendBtnVisible = false;
-            SendCallback.InvokeAsync(Device.Ip);
+            SendCallback.InvokeAsync(Device.IP);
         })">
         <i class="ph ph-arrow-fat-line-right"></i>
     </div>
@@ -48,7 +48,7 @@
 
 @code {
     [Parameter]
-    public DeviceModel Device { get; set; } = null!;
+    public LocalDeviceModel Device { get; set; } = null!;
 
     [Parameter]
     public EventCallback<IPAddress> SendCallback { get; set; }
@@ -71,7 +71,7 @@
 
     private string GetDeviceIcon()
     {
-        return Device?.Info.Type switch
+        return Device?.Type switch
         {
             DeviceModelType.Desktop => "<i class=\"ph ph-desktop-tower\"></i>",
             DeviceModelType.Laptop => "<i class=\"ph ph-laptop\"></i>",

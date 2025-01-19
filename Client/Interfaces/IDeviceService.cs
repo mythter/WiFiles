@@ -4,6 +4,6 @@ namespace Client.Interfaces
 {
     public interface IDeviceService
     {
-        DeviceInfoModel GetCurrentDeviceInfo();
+        DeviceModel GetCurrentDeviceInfo();
     }
 }

@@ -73,7 +73,7 @@
 
     public List<IPAddress> LocalIPs { get; set; } = new();
 
-    public List<DeviceModel> Devices { get; set; } = new();
+    public List<LocalDeviceModel> Devices { get; set; } = new();
 
     public string SelectedIp { get; set; } = null!;
 
@@ -105,9 +105,9 @@
         _ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
     }
 
-    private void OnDeviceFound(object? sender, DeviceModel device)
+    private void OnDeviceFound(object? sender, LocalDeviceModel device)
     {
-        if (!Devices.Exists(d => d.Ip.Equals(device.Ip)))
+        if (!Devices.Exists(d => d.IP is not null && d.IP.Equals(device.IP)))
         {
             Devices.Add(device);
             StateHasChanged();
