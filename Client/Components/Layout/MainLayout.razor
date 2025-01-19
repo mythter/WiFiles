@@ -1,6 +1,7 @@
 ﻿@using System.Net
 @inherits LayoutComponentBase
 @inject NavigationService NavigationService
+@inject NavigationManager NavigationManager
 @inject ILocalNetworkService lns
 @inject IStorageService StorageService
 @inject LocalTransferService TransferService
@@ -8,16 +9,23 @@
 <CascadingValue Value="@MessageBoxElement" Name="MessageBox">
     <div class="page">
         <main class="main">
-        @Body
+            @Body
         </main>
-    @* <div class="menu">
-                    <div class="item">
+
+        @if (NavigationManager.Uri.Contains("/local") ||
+             NavigationManager.Uri.Contains("/global"))
+        {   
+            <div class="menu">
+                <div class="item @(NavigationManager.Uri.Contains("/local") ? "active" : "")"
+                     @onclick="@(() => NavigationService.NavigateTo("local"))">
                     Local
-                    </div>
-                    <div class="item">
+                </div>
+                <div class="item @(NavigationManager.Uri.Contains("/global") ? "active" : "")"
+                     @onclick="@(() => NavigationService.NavigateTo("global"))">
                     Global
-                    </div>
-                    </div> *@
+                </div>
+            </div>
+        }
     </div>
 </CascadingValue>
 

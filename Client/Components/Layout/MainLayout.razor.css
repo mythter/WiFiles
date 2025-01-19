@@ -28,3 +28,7 @@
     align-items: center;
     flex-grow: 1;
 }
+
+    .menu .item.active {
+        background: #3f2f53;
+    }
