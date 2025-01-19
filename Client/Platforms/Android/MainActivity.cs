@@ -192,7 +192,6 @@ namespace Client
             }
         }
 
-
         private static string GetRealPath(Context context, Uri fileUri)
         {
             string realPath;

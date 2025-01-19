@@ -12,7 +12,7 @@
         {
             <div class="status"> @Status </div>
         }
-        else if (File.Progress is not null)
+        else if (File.Status == TransferStatus.InProgress)
         {
             <div class="progress"> @($"{Progress}%") </div>
         }
@@ -29,14 +29,14 @@
 
 @code {
     [Parameter]
-    public FileModel File { get; set; }
+    public FileModel File { get; set; } = null!;
 
     [Parameter]
     public EventCallback<FileModel> OnClick { get; set; }
 
     public bool IsSelected { get; set; }
 
-    public long Progress { get; set; }
+    public int Progress { get; set; }
 
     public string? Status { get; set; }
 
@@ -48,19 +48,21 @@
 
     protected override void OnInitialized()
     {
-        if (File?.Progress is not null)
-        {
-            File.Progress.ProgressChanged += OnProgressChanged;
-        }
+        File.ProgressChanged += OnProgressChanged;
 
-        if (!System.IO.File.Exists(File?.Path))
+        switch (File.Status)
         {
-            Progress = -1;
-            Status = "Deleted";
-        }
-        else if (File is not null && new FileInfo(File.Path).Length == File.Size)
-        {
-            Progress = 100;
+            case TransferStatus.InProgress:
+                Progress = CalculateProgressPercent(File.CurrentProgress);
+                break;
+            case TransferStatus.Finished:
+                Progress = 100;
+                Status = "Finished";
+                break;
+            case TransferStatus.Failed:
+                Progress = -1;
+                Status = "Error";
+                break;
         }
     }
 
@@ -68,19 +70,31 @@
     {
         if (firstRender)
         {
-            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/FileComponent.razor.js");
-            await jsModule.InvokeVoidAsync("FileComponent.Init", ElementInfo, ElementName, ElementPath);
+            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
+            await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementInfo, ElementName);
+            await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementInfo, ElementPath);
         }
     }
 
     private void OnProgressChanged(object? sender, long progress)
     {
-        long percent = (long)(progress * 100 / File.Size);
-        if (Progress != percent)
+        int percent = CalculateProgressPercent(progress);
+
+        if (File.CurrentProgress == File.Size)
+        {
+            Progress = 100;
+            Status = "Finished";
+        }
+        else if (Progress != percent)
         {
             Progress = percent;
             InvokeAsync(StateHasChanged);
         }
+    }
+
+    private int CalculateProgressPercent(long progress)
+    {
+        return (int)(progress * 100 / File.Size);
     }
 
     private async Task OnClickHandler()
@@ -104,7 +118,6 @@
             "docx" or
             "doc" => "<i class=\"ph ph-file-doc\"></i>",
             "csv" => "<i class=\"ph ph-file-csv\"></i>",
-
             "ebook" or
             "log" or
             "msg" or
@@ -128,7 +141,6 @@
             "sql" => "<i class=\"ph ph-file-sql\"></i>",
             "ts" => "<i class=\"ph ph-file-ts\"></i>",
             "vue" => "<i class=\"ph ph-file-vue\"></i>",
-
             "c" or
             "h" or
             "hpp" or
@@ -163,7 +175,7 @@
             "f" or
             "f77" or
             "f90" or
-            "fish	" or
+            "fish" or
             "for" or
             "fth" or
             "ftn" or
@@ -207,7 +219,7 @@
             "rs" or
             "s" or
             "scala" or
-            "sh	" or
+            "sh" or
             "sql" or
             "swg" or
             "swift" or
@@ -227,7 +239,6 @@
             "pjp" or
             "jpg" => "<i class=\"ph ph-file-jpg\"></i>",
             "svg" => "<i class=\"ph ph-file-svg\"></i>",
-
             "bmp" or
             "apng" or
             "avif" or
@@ -306,12 +317,12 @@
             "mod" => "<i class=\"ph ph-file-video\"></i>",
             // archives
             "zip" => "<i class=\"ph ph-file-zip\"></i>",
-
             "7z" or
             "rar" or
             "tar" => "<i class=\"ph ph-file-archive\"></i>",
             // other
             "ppt" => "<i class=\"ph ph-file-ppt\"></i>",
+            "xlsx" or
             "xls" => "<i class=\"ph ph-file-xls\"></i>",
 
             _ => "<i class=\"ph ph-file\"></i>"
@@ -320,9 +331,6 @@
 
     public void Dispose()
     {
-        if (File?.Progress is not null)
-        {
-            File.Progress.ProgressChanged -= OnProgressChanged;
-        };
+        File.ProgressChanged -= OnProgressChanged;
     }
 }

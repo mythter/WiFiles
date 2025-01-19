@@ -8,15 +8,20 @@ namespace Client
         public static void AddBusinessLogicLayer(this IServiceCollection services)
         {
             services.AddScoped<NavigationService>();
+            services.AddScoped<ILocalNetworkService, LocalNetworkService>();
 
             services.AddSingleton<LocalTransferService>();
 
 #if ANDROID
-            services.AddScoped<ILocalNetworkService, AndroidLocalNetworkService>();
-            services.AddScoped<IStorageService, AndroidStorageService>();
+            services.AddSingleton<INetworkInfoService, AndroidNetworkInfoService>();
+            services.AddSingleton<IDeviceService, AndroidDeviceService>();
+
+            services.AddSingleton<IStorageService, AndroidStorageService>();
 #elif WINDOWS
-            services.AddScoped<ILocalNetworkService, WindowsLocalNetworkService>();
-            services.AddScoped<IStorageService, WindowsStorageService>();
+            services.AddSingleton<INetworkInfoService, WindowsNetworkInfoService>();
+            services.AddSingleton<IDeviceService, WindowsDeviceService>();
+
+            services.AddSingleton<IStorageService, WindowsStorageService>();
 #endif
         }
     }

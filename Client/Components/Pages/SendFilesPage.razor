@@ -5,14 +5,20 @@
 @inject LocalTransferService TransferService
 
 <header class="header">
-    <BadgeButton OnClick="@PickFiles">
+    <RealButton OnClick="@PickFiles">
         <i class="ph ph-plus"></i>
-    </BadgeButton>
+    </RealButton>
     @if (SelectedFiles.Count > 0)
     {
-        <BadgeButton OnClick="@RemoveFiles">
+        <RealButton OnClick="@RemoveFiles">
             <i class="ph ph-trash"></i>
-        </BadgeButton>
+        </RealButton>
+    }
+    else if (StorageService.SendFiles.Count > 0)
+    {
+        <RealButton OnClick="@ClearFiles">
+            <i class="ph ph-broom"></i>
+        </RealButton>
     }
     <BadgeButton Class="transparent left" OnClick="NavigationService.NavigateBack">
         <i class="ph ph-arrow-left"></i>
@@ -20,27 +26,27 @@
 </header>
 
 <div class="files">
-    @foreach (FileModel file in SendFiles)
+    @foreach (var file in StorageService.SendFiles.Select((f, i) => new { File = f, Index = i }))
     {
-        <FileComponent @key="@file" File="@file" OnClick="OnFileClick"></FileComponent>
+        <FileComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileComponent>
     }
 
-    @if (SendFiles.Count == 0)
+    @if (StorageService.SendFiles.Count == 0)
     {
         <div class="message">
-            @("Select files you wand to send")
+            @("Select files you want to send")
         </div>
     }
 </div>
 
 @code {
-    [CascadingParameter(Name = "SendFiles")]
-    public List<FileModel> SendFiles { get; set; }
-
     [CascadingParameter(Name = "MessageBox")]
     private MessageBox MessageBoxElement { get; set; }
 
-    public List<FileModel> SelectedFiles { get; set; } = new();
+    private List<FileModel> SelectedFiles { get; set; } = new();
+
+    // needed to reload animation after rerender
+    private string uniqueSuffix = Guid.NewGuid().ToString();
 
     private async Task PickFiles()
     {
@@ -50,31 +56,31 @@
             return;
         }
 
-        StringBuilder sb = new StringBuilder();
-        List<string> files = await StorageService.PickFilesAsync();
-        foreach (var filePath in files)
+        StringBuilder notreadableFiles = new StringBuilder();
+        List<string> pickedFiles = await StorageService.PickFilesAsync();
+        foreach (var filePath in pickedFiles)
         {
-            if (!StorageService.CheckIsFileReadable(filePath))
+            if (!StorageService.CheckIfFileReadable(filePath))
             {
-                sb.AppendLine(filePath);
+                notreadableFiles.AppendLine(filePath);
                 continue;
             }
 
             if (!string.IsNullOrEmpty(filePath) &&
-                !SendFiles.Any(f => f.Path == filePath))
+                !StorageService.SendFiles.Any(f => f.Path == filePath))
             {
                 long fileSize = new FileInfo(filePath).Length;
                 FileModel file = new FileModel(filePath, fileSize);
-                SendFiles.Add(file);
+                StorageService.SendFiles.Add(file);
             }
         }
 
-        if (sb.Length > 0)
+        if (notreadableFiles.Length > 0)
         {
             MessageBoxElement.ShowError(
-                "Some files you selected are not currently supported for sending:\n" +
-                sb.ToString(),
-                "Files not supported");
+                "Some files you selected cannot be read and hence cannot be sent:\n" +
+                notreadableFiles.ToString(),
+                "Files cannot be read");
             return;
         }
     }
@@ -89,10 +95,16 @@
 
         foreach (FileModel f in SelectedFiles)
         {
-            SendFiles.Remove(f);
+            StorageService.SendFiles.Remove(f);
         }
 
         SelectedFiles.Clear();
+        uniqueSuffix = Guid.NewGuid().ToString();
+    }
+
+    private void ClearFiles()
+    {
+        StorageService.SendFiles.Clear();
     }
 
     private void OnFileClick(FileModel file)

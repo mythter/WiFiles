@@ -7,14 +7,14 @@
 @implements IDisposable
 
 <header class="header">
-    <BadgeButton OnClick="@PickFolder">
+    <RealButton OnClick="@PickFolder">
         <i class="ph ph-folder-notch"></i>
-    </BadgeButton>
+    </RealButton>
     @if (TransferService.IsReceiving)
     {
-        <BadgeButton OnClick="@TransferService.StopReceiving">
+        <RealButton OnClick="@TransferService.StopReceiving">
             <i class="ph ph-x"></i>
-        </BadgeButton>
+        </RealButton>
     }
     <BadgeButton Class="transparent left" OnClick="@NavigationService.NavigateBack">
         <i class="ph ph-arrow-left"></i>
@@ -24,16 +24,16 @@
 <div class="container">
     <div class="folder" @ref=ElementFolderContainer>
         <div class="folder-area" @ref=ElementFolder @onclick="@PickFolder">
-            @Folder
+            @StorageService.SaveFolder
         </div>
     </div>
     <div class="files">
-        @foreach (var file in ReceivedFiles)
+        @foreach (var file in StorageService.ReceiveFiles)
         {
             <FileComponent File="@file"></FileComponent>
         }
 
-        @if (ReceivedFiles.Count == 0)
+        @if (StorageService.ReceiveFiles.Count == 0)
         {
             <div class="message">
                 @("You haven't received any files yet")
@@ -43,15 +43,6 @@
 </div>
 
 @code {
-    [CascadingParameter(Name = "SaveFolder")]
-    public string? Folder { get; set; }
-
-    [CascadingParameter(Name = "SetFolder")]
-    public EventCallback<string> SetFolder { get; set; }
-
-    [CascadingParameter(Name = "ReceivedFiles")]
-    public List<FileModel> ReceivedFiles { get; set; }
-
     [CascadingParameter(Name = "MessageBox")]
     public MessageBox MessageBoxElement { get; set; }
 
@@ -69,17 +60,8 @@
     {
         if (firstRender)
         {
-            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/ReceiveFilesPage.razor.js");
-            await jsModule.InvokeVoidAsync("ReceiveFilesPage.Init", ElementFolderContainer, ElementFolder);
-        }
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        // await InvokeAsync(StateHasChanged);
-        if (jsModule is not null)
-        {
-            await jsModule.InvokeVoidAsync("ReceiveFilesPage.FolderChanged", ElementFolderContainer, ElementFolder);
+            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
+            await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementFolderContainer, ElementFolder);
         }
     }
 
@@ -92,7 +74,7 @@
             return;
         }
 
-        if (!StorageService.CheckIsDirectoryWritable(path))
+        if (!StorageService.CheckIfDirectoryWritable(path))
         {
             MessageBoxElement.ShowError(
                 "Saving to the selected folder is not currently supported. Please select another folder.",
@@ -100,9 +82,10 @@
             return;
         }
 
-        if (!string.IsNullOrEmpty(path))
+        if (StorageService.TrySetSaveFolder(path))
         {
-            await SetFolder.InvokeAsync(path);
+            StateHasChanged();
+            await jsModule.InvokeVoidAsync("RunningTextAnimation.CheckAnimation", ElementFolder, ElementFolderContainer);
         }
     }
 

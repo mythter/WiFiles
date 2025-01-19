@@ -1,11 +1,23 @@
 ﻿using Client.Interfaces;
+using Client.Models;
 using CommunityToolkit.Maui.Storage;
 
 namespace Client.Services
 {
     public class WindowsStorageService : IStorageService
     {
-        public bool CheckIsDirectoryWritable(string dirPath, bool throwIfFails = false)
+        public string SaveFolder { get; private set; }
+
+        public SynchronizedCollection<FileModel> SendFiles { get; } = new();
+
+        public SynchronizedCollection<FileModel> ReceiveFiles { get; } = new();
+
+        public WindowsStorageService()
+        {
+            SaveFolder = GetDefaultFolder();
+        }
+
+        public bool CheckIfDirectoryWritable(string dirPath, bool throwIfFails = false)
         {
             try
             {
@@ -22,7 +34,7 @@ namespace Client.Services
             }
         }
 
-        public bool CheckIsFileReadable(string filePath, bool throwIfFails = false)
+        public bool CheckIfFileReadable(string filePath, bool throwIfFails = false)
         {
             try
             {
@@ -38,7 +50,7 @@ namespace Client.Services
             }
         }
 
-        public string? GetDefaultFolder()
+        public string GetDefaultFolder()
         {
             string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
             if (Directory.Exists(path))
@@ -49,6 +61,17 @@ namespace Client.Services
             {
                 return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             }
+        }
+
+        public bool TrySetSaveFolder(string path)
+        {
+            if (Directory.Exists(path))
+            {
+                SaveFolder = path;
+                return true;
+            }
+
+            return false;
         }
 
         public async Task<List<string>> PickFilesAsync()

@@ -1,25 +1,20 @@
 ﻿using System.Net.Sockets;
+using System.Text;
 
 namespace Client.Extensions
 {
     public static class NetworkStreamExtensions
     {
         public static async Task<int> ReadWithTimeoutAsync(
-            this NetworkStream stream, 
-            byte[] buffer, 
-            int timeout, 
+            this NetworkStream stream,
+            byte[] buffer,
+            int timeout,
             CancellationToken cancellationToken)
         {
-            Task<int> readTask = stream.ReadAsync(buffer, 0 ,buffer.Length, cancellationToken);
+            using var readCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(readCts.Token, cancellationToken);
 
-            await Task.WhenAny(readTask, Task.Delay(timeout, cancellationToken));
-
-            if (!readTask.IsCompletedSuccessfully)
-            {
-                throw new OperationCanceledException("Sender or you disconnected.");
-            }
-
-            return await readTask;
+            return await stream.ReadAsync(buffer, linkedCts.Token);
         }
 
         public static async Task WriteWithTimeoutAsync(
@@ -28,21 +23,61 @@ namespace Client.Extensions
             int timeout,
             CancellationToken cancellationToken)
         {
-            Task writeTask = stream.WriteAsync(buffer, 0, buffer.Length, cancellationToken);
+            using var writeCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(writeCts.Token, cancellationToken);
 
-            await Task.WhenAny(writeTask, Task.Delay(timeout, cancellationToken));
+            await stream.WriteAsync(buffer, linkedCts.Token);
+        }
 
-            if (!writeTask.IsCompletedSuccessfully)
-            {
-                if (writeTask.Exception?.InnerException?.InnerException is SocketException ex)
-                {
-                    throw ex;
-                }
+        public static async Task<T> ReadAsync<T>(
+            this NetworkStream stream,
+            Func<byte[], T> converter,
+            int size,
+            CancellationToken cancellationToken = default)
+        {
+            byte[] buffer = new byte[size];
+            await stream.ReadExactlyAsync(buffer, 0, size, cancellationToken);
+            return converter(buffer);
+        }
 
-                throw new OperationCanceledException("Receiver or you disconnected.");
-            }
+        public static async Task<bool> ReadBooleanAsync(
+            this NetworkStream stream,
+            CancellationToken cancellationToken = default)
+        {
+            return await stream.ReadAsync(
+                (bytes) => BitConverter.ToBoolean(bytes, 0),
+                sizeof(bool),
+                cancellationToken);
+        }
 
-            await writeTask;
+        public static async Task<int> ReadInt32Async(
+            this NetworkStream stream,
+            CancellationToken cancellationToken = default)
+        {
+            return await stream.ReadAsync(
+                (bytes) => BitConverter.ToInt32(bytes, 0),
+                sizeof(int),
+                cancellationToken);
+        }
+
+        public static async Task<string> ReadStringAsync(
+            this NetworkStream stream,
+            int size,
+            CancellationToken cancellationToken = default)
+        {
+            return await stream.ReadAsync(Encoding.UTF8.GetString, size, cancellationToken);
+        }
+
+        public static async Task WriteBooleanAsync(
+            this NetworkStream stream,
+            bool value,
+            CancellationToken cancellationToken = default)
+        {
+            await stream.WriteAsync(
+                BitConverter.GetBytes(value),
+                0,
+                sizeof(bool),
+                cancellationToken);
         }
     }
 }

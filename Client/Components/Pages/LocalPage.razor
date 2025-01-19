@@ -4,67 +4,62 @@
 @using System.Net.Sockets
 @using System.Text
 @inject ILocalNetworkService lns
+@inject INetworkInfoService nis
 @inject IStorageService storage
 @inject IJSRuntime js
 @inject NavigationService NavigationService
 @inject LocalTransferService TransferService
+@inject IStorageService StorageService
 @implements IDisposable
 
 <header class="header">
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
-                 Count="ReceivedFiles.Count">
+    Count="StorageService.ReceiveFiles.Count">
         <i class="ph ph-download-simple"></i>
     </BadgeButton>
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
-                 Count="SendFiles.Count">
+    Count="StorageService.SendFiles.Count">
         <i class="ph ph-upload-simple"></i>
     </BadgeButton>
-    <BadgeButton Class="left" OnClick="@(() => Listening ? StopListening() : StartListening())">
+    <RealButton Class="left" OnClick="@RefreshIps">
+        <i class="ph ph-arrows-clockwise"></i>
+    </RealButton>
+    <RealToggleButton IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
         @if (Listening)
         {
-            <i class="ph ph-ear"></i>
+                <i class="ph ph-ear"></i>
         }
         else
         {
-            <i class="ph ph-ear-slash"></i>
+                <i class="ph ph-ear-slash"></i>
         }
-    </BadgeButton>
+    </RealToggleButton>
 </header>
 
 <div class="main">
     <div class="container">
         <div class="top-panel">
             <select class="select" @bind="SelectedIp" @bind:after="IpChanged">
-                @foreach (var ip in IPs)
+                @foreach (var ip in NetworkInterfaceIPs)
                 {
                     <option value="@ip" selected="@(ip.ToString() == SelectedIp)">@ip.ToString()</option>
                 }
             </select>
-            <div class="refresh" @onclick="RefreshIps">
-                <i class="ph ph-arrows-clockwise"></i>
+        </div>
+
+        <div class="devices">
+            <div class="devices-area">
+                @foreach (var device in Devices)
+                {
+                        <DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
+                }
             </div>
         </div>
 
-        @if (Supported)
-        {
-            <div class="devices">
-                <div class="devices-area">
-                    @foreach (var ip in LocalIPs)
-                    {
-                        <DeviceComponent Ip="@ip" SendCallback="StartSending"></DeviceComponent>
-                    }
-                </div>
-            </div>
-        }
-
         <div class="message">
-            @if (IPs.Count == 0)
+            @if (NetworkInterfaceIPs.Count == 0)
             {
                 @("Could not find interfaces with default gateway")
-            }
-            else if (!Supported)
-            {
-                @("Networks with more than 65534 hosts are not currently supported")
             }
         </div>
 
@@ -72,28 +67,19 @@
 </div>
 
 @code {
-    public List<IPAddress> IPs { get; set; } = new();
+    public List<IPAddress> NetworkInterfaceIPs { get; set; } = new();
 
     public List<IPAddress> Gateways { get; set; } = new();
 
     public List<IPAddress> LocalIPs { get; set; } = new();
 
-    public string? SelectedIp { get; set; }
+    public List<DeviceModel> Devices { get; set; } = new();
 
-    public bool Supported { get; set; }
+    public string SelectedIp { get; set; } = null!;
 
     public bool Loading { get; set; }
 
     public bool Listening { get; set; }
-
-    [CascadingParameter(Name = "SendFiles")]
-    public List<FileModel> SendFiles { get; set; } = null!;
-
-    [CascadingParameter(Name = "ReceivedFiles")]
-    public List<FileModel> ReceivedFiles { get; set; } = null!;
-
-    [CascadingParameter(Name = "SaveFolder")]
-    public string? SaveFolder { get; set; }
 
     IJSObjectReference jsModule = null!;
 
@@ -103,130 +89,47 @@
     protected override async Task OnInitializedAsync()
     {
         Listening = TransferService.IsListening;
+
         TransferService.ListeningStarted += ListeningStarted;
         TransferService.ListeningStopped += ListeningStopped;
-        await Task.Run(async () =>
+
+        lns.DeviceFound += OnDeviceFound;
+
+        await Task.Run(() =>
         {
-            IPs = lns.GetAllHostIpAddressesWithGateway();
-            GetGateways();
-            var selectedIp = IPs
-                .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
-            Supported = selectedIp is null ? false : true;
-            SelectedIp ??= selectedIp?.ToString();
-            await PingLocalIPs(selectedIp);
+            NetworkInterfaceIPs = nis.GetNetworkInterfaceIPAddresses();
+            SelectedIp = NetworkInterfaceIPs.First().ToString();
         });
+        StateHasChanged();
+
+        _ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
     }
 
-    private void GetGateways()
+    private void OnDeviceFound(object? sender, DeviceModel device)
     {
-        Gateways.Clear();
-        foreach (var ip in IPs)
+        if (!Devices.Exists(d => d.Ip.Equals(device.Ip)))
         {
-            IPAddress? gateway = lns.GetGatewayByIp(ip);
-            if (gateway is not null)
-            {
-                Gateways.Add(gateway);
-            }
+            Devices.Add(device);
+            StateHasChanged();
         }
     }
 
-    private async Task PingLocalIPs(IPAddress? ip)
+    private async Task IpChanged()
     {
-        if (ip is null)
-            return;
+        IPAddress ip = IPAddress.Parse(SelectedIp);
+        await RefreshIps();
+    }
 
+    private async Task RefreshIps()
+    {
         LocalIPs.Clear();
-        IPAddress? mask = lns.GetSubnetMaskByIp(ip);
-
-        if (mask is null || mask.GetAddressBytes().Count(b => b == 0) > 2)
-            return;
-
-        Loading = true;
-        await InvokeAsync(StateHasChanged);
-
-        IPAddress network = lns.GetNetworkAddress(ip, mask);
-
-        byte[] hosts = mask.GetAddressBytes().Select(b => (byte)(byte.MaxValue - b)).ToArray();
-
-        List<Task> pings = new List<Task>();
-
-        byte[] init = new byte[4];
-        while (!hosts.SequenceEqual(init))
-        {
-            for (int i = 3; i >= 0; i--)
-            {
-                if (init[i]++ == 255) continue;
-                break;
-            }
-
-            var host = new IPAddress(network.GetAddressBytes().Zip(init, (n, i) => (byte)(n + i)).ToArray());
-
-            pings.Add(PingHost(host));
-        }
-
-        await Task.WhenAll(pings);
-        Loading = true;
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task PingHost(IPAddress host)
-    {
-        Ping pingSender = new Ping();
-        PingReply pr = await pingSender.SendPingAsync(host, 10_000);
-
-        if (pr.Status == IPStatus.Success &&
-            !IPs.Contains(pr.Address) &&
-            !Gateways.Contains(pr.Address) &&
-            !LocalIPs.Contains(pr.Address))
-        {
-            LocalIPs.Add(pr.Address);
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    private void IpChanged()
-    {
-        IPAddress? ip = SelectedIp is null ? null : IPAddress.Parse(SelectedIp);
-        Supported = ip is null || lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) > 2 ? false : true;
-        if (Supported)
-        {
-            Task.Run(() => PingLocalIPs(ip));
-        }
-    }
-
-    private void RefreshIps()
-    {
-        IPAddress? ip = SelectedIp is null ? null : IPAddress.Parse(SelectedIp);
-        LocalIPs.Clear();
-        Task.Run(() => PingLocalIPs(ip));
-    }
-
-    private async Task RefreshAll()
-    {
-        await Task.Run(async () =>
-        {
-            IPs.Clear();
-            IPs.AddRange(lns.GetAllHostIpAddressesWithGateway());
-            GetGateways();
-            var selectedIp = IPs
-                .FirstOrDefault(ip => lns.GetSubnetMaskByIp(ip)?.GetAddressBytes().Count(b => b == 0) <= 2);
-            Supported = selectedIp is null ? false : true;
-            SelectedIp ??= selectedIp?.ToString();
-            await PingLocalIPs(selectedIp);
-        });
+        Devices.Clear();
+        await lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
     }
 
     private async Task StartListening()
     {
-        if (SaveFolder is null)
-        {
-            MessageBoxElement.ShowError(
-                "You need to select destination folder before receiving files.", 
-                "Destination folder not selected");
-            return;
-        }
-
-        if (SaveFolder is null)
+        if (!StorageService.CheckIfDirectoryWritable(StorageService.SaveFolder))
         {
             MessageBoxElement.ShowError(
                 "Saving to the selected folder is not currently supported. Please select another folder.",
@@ -244,13 +147,13 @@
 
     private async Task StartSending(IPAddress ip)
     {
-        if (SendFiles.Count == 0)
+        if (StorageService.SendFiles.Count == 0)
         {
             MessageBoxElement.ShowWarning("You have no files to send.");
             return;
         }
 
-        await TransferService.StartSendingAsync(ip, SendFiles);
+        await TransferService.StartSendingAsync(ip, new List<FileModel>(StorageService.SendFiles));
     }
 
     private void ListeningStarted(object? sender, EventArgs e)

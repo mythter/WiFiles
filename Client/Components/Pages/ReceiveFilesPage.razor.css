@@ -45,6 +45,7 @@
     padding: 10px;
     overflow-y: auto;
     overflow-x: hidden;
+    scrollbar-width: none;
 }
 
 .message {
@@ -55,19 +56,4 @@
     display: flex;
     justify-content: center;
     align-items: center;
-}
-
-.running-text {
-    animation: moving infinite linear alternate;
-    animation-delay: 3s;
-}
-
-@keyframes moving {
-    from {
-        transform: translateX(0%);
-    }
-
-    to {
-        transform: translateX(calc(-100% + var(--container-width)));
-    }
 }

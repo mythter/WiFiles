@@ -1,11 +1,23 @@
 ﻿#if ANDROID
 using Client.Interfaces;
+using Client.Models;
 
 namespace Client.Services
 {
     public class AndroidStorageService : IStorageService
     {
-        public bool CheckIsDirectoryWritable(string dirPath, bool throwIfFails = false)
+        public string SaveFolder { get; private set; }
+
+        public SynchronizedCollection<FileModel> SendFiles { get; } = new();
+
+        public SynchronizedCollection<FileModel> ReceiveFiles { get; } = new();
+
+        public AndroidStorageService()
+        {
+            SaveFolder = GetDefaultFolder();
+        }
+
+        public bool CheckIfDirectoryWritable(string dirPath, bool throwIfFails = false)
         {
             try
             {
@@ -22,7 +34,7 @@ namespace Client.Services
             }
         }
 
-        public bool CheckIsFileReadable(string filePath, bool throwIfFails = false)
+        public bool CheckIfFileReadable(string filePath, bool throwIfFails = false)
         {
             try
             {
@@ -38,9 +50,10 @@ namespace Client.Services
             }
         }
 
-        public string? GetDefaultFolder()
+        public string GetDefaultFolder()
         {
-            string? extStorDir = Android.OS.Environment.ExternalStorageDirectory?.AbsolutePath;
+            string extStorDir = Android.OS.Environment.ExternalStorageDirectory?.AbsolutePath
+                ?? throw new NotSupportedException("Unable to get ExternalStorageDirectory absolute path");
             Java.IO.File path = new Java.IO.File(extStorDir + "/Download");
             if (path.Exists())
             {
@@ -50,6 +63,18 @@ namespace Client.Services
             {
                 return extStorDir;
             }
+        }
+
+        public bool TrySetSaveFolder(string path)
+        {
+            Java.IO.File folder = new Java.IO.File(path);
+            if (folder.Exists())
+            {
+                SaveFolder = path;
+                return true;
+            }
+
+            return false;
         }
 
         public async Task<List<string>> PickFilesAsync()

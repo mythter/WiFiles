@@ -1,17 +1,16 @@
 ﻿using System.Net;
+using Client.Models;
 
 namespace Client.Interfaces
 {
     public interface ILocalNetworkService
     {
-        //List<IPAddress> GetAllHostIpAddresses();
+        event EventHandler<DeviceModel> DeviceFound;
 
-        List<IPAddress> GetAllHostIpAddressesWithGateway();
-        IPAddress? GetGatewayByIp(IPAddress ip);
+        Task StartMulticastScanAsync(IPAddress networkInterfaceAddress);
 
-        //IPAddress? GetGatewayByHostIp(IPAddress ip);
-        IPAddress? GetSubnetMaskByIp(IPAddress ip);
-        //IPAddress? GetSubnetMaskByHostIp(IPAddress ip);
-        IPAddress GetNetworkAddress(IPAddress ip, IPAddress mask);
+        Task StartMulticastListeningAsync();
+
+        void StopMulticastListening();
     }
 }
