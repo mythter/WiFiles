@@ -12,7 +12,7 @@
 @inject IStorageService StorageService
 @implements IDisposable
 
-<header class="header">
+<Header>
     <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
     Count="StorageService.ReceiveFiles.Count">
         <i class="ph ph-download-simple"></i>
@@ -34,7 +34,7 @@
                 <i class="ph ph-ear-slash"></i>
         }
     </RealToggleButton>
-</header>
+</Header>
 
 <div class="main">
     <div class="container">

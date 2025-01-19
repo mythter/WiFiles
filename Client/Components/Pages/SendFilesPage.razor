@@ -4,7 +4,7 @@
 @inject IStorageService StorageService
 @inject LocalTransferService TransferService
 
-<header class="header">
+<Header>
     <RealButton OnClick="@PickFiles">
         <i class="ph ph-plus"></i>
     </RealButton>
@@ -23,7 +23,7 @@
     <BadgeButton Class="transparent left" OnClick="NavigationService.NavigateBack">
         <i class="ph ph-arrow-left"></i>
     </BadgeButton>
-</header>
+</Header>
 
 <div class="files">
     @foreach (var file in StorageService.SendFiles.Select((f, i) => new { File = f, Index = i }))

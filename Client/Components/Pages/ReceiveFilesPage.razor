@@ -6,7 +6,7 @@
 @inject IJSRuntime js
 @implements IDisposable
 
-<header class="header">
+<Header>
     <RealButton OnClick="@PickFolder">
         <i class="ph ph-folder-notch"></i>
     </RealButton>
@@ -19,7 +19,7 @@
     <BadgeButton Class="transparent left" OnClick="@NavigationService.NavigateBack">
         <i class="ph ph-arrow-left"></i>
     </BadgeButton>
-</header>
+</Header>
 
 <div class="container">
     <div class="folder" @ref=ElementFolderContainer>
