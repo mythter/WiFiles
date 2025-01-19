@@ -5,7 +5,7 @@ namespace Client.Interfaces
 {
     public interface ILocalNetworkService
     {
-        event EventHandler<DeviceModel> DeviceFound;
+        event EventHandler<LocalDeviceModel> DeviceFound;
 
         Task StartMulticastScanAsync(IPAddress networkInterfaceAddress);
 
