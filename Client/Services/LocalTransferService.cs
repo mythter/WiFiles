@@ -105,7 +105,7 @@ namespace Client.Services
             catch (OperationCanceledException ex)
             {
                 // if operation cancelled not by us show error message
-                if (ClientTokenSource is not null)
+                if (ClientTokenSource is not null && !ClientTokenSource.Token.IsCancellationRequested)
                 {
                     ExceptionHandled?.Invoke(this, ex.Message);
                 }
@@ -127,8 +127,6 @@ namespace Client.Services
         public void StopSending()
         {
             ClientTokenSource?.Cancel();
-            ClientTokenSource?.Dispose();
-            ClientTokenSource = null;
             ReceiverIp = null;
         }
 
@@ -222,7 +220,7 @@ namespace Client.Services
                     int size = await stream.ReadWithTimeoutAsync(buffer, ReceiveTimeout, cancellationToken);
                     if (size == 0)
                     {
-                        throw new OperationCanceledException("Sender cancelled the operation or disconnected.");
+                        throw new OperationCanceledException("Sender cancelled the operation or was disconnected.");
                     }
                     await fs.WriteAsync(buffer.AsMemory(0, size));
                     receivedSize += size;
@@ -243,8 +241,8 @@ namespace Client.Services
         {
             try
             {
-                IsListening = true;
                 TcpListener.Start();
+                IsListening = true;
                 ListeningStarted?.Invoke(this, EventArgs.Empty);
 
                 ListenerTokenSource = new CancellationTokenSource();
