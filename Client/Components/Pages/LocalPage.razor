@@ -27,11 +27,11 @@
     <RealToggleButton IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
         @if (Listening)
         {
-                <i class="ph ph-ear"></i>
+            <i class="ph ph-ear"></i>
         }
         else
         {
-                <i class="ph ph-ear-slash"></i>
+            <i class="ph ph-ear-slash"></i>
         }
     </RealToggleButton>
 </Header>
@@ -51,13 +51,17 @@
             <div class="devices-area">
                 @foreach (var device in Devices)
                 {
-                        <DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
+                    <DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
                 }
             </div>
         </div>
 
         <div class="message">
-            @if (NetworkInterfaceIPs.Count == 0)
+            @if (GettingNetworkInterfaces)
+            {
+                @("Getting info about network interfaces...")
+            }
+            else if (NetworkInterfaceIPs.Count == 0)
             {
                 @("Could not find interfaces with default gateway")
             }
@@ -81,6 +85,8 @@
 
     public bool Listening { get; set; }
 
+    public bool GettingNetworkInterfaces { get; set; }
+
     IJSObjectReference jsModule = null!;
 
     [CascadingParameter(Name = "MessageBox")]
@@ -95,11 +101,13 @@
 
         lns.DeviceFound += OnDeviceFound;
 
+        GettingNetworkInterfaces = true;
         await Task.Run(() =>
         {
             NetworkInterfaceIPs = nis.GetNetworkInterfaceIPAddresses();
             SelectedIp = NetworkInterfaceIPs.First().ToString();
         });
+        GettingNetworkInterfaces = false;
         StateHasChanged();
 
         _ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
