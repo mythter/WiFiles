@@ -1,20 +1,8 @@
 ﻿.button {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
-    border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 24px;
-    color: #fff;
-    background-color: #3f3f62;
 }
-
-    .button:hover {
-        background-color: #373756;
-    }
 
 /*#fde7bd*/
 .badge-on::after {
@@ -32,14 +20,6 @@
     justify-content: center;
     align-items: center;
 }
-
-.transparent {
-    background-color: transparent;
-}
-
-    .transparent:hover {
-        background-color: #00000020;
-    }
 
 .left {
     margin-right: auto;

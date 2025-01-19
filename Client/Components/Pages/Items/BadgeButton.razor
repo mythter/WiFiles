@@ -1,7 +1,9 @@
 ﻿<div class="button @(Count > 0 ? "badge-on" : "") @Class" 
      data-content="@Count"
      @onclick="@OnClickHandler">
-    @ChildContent
+    <RealButton>
+        @ChildContent
+    </RealButton>
 </div>
 
 @code {
