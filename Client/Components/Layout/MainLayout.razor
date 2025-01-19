@@ -45,10 +45,10 @@
         NavigationService.NavigateTo("local");
     }
 
-    private Task<bool> ShowRequest(RequestModel request)
+    private Task<bool> ShowRequest(LocalRequestModel request)
     {
         return MessageBoxElement.ShowRequest(
-            $"Sender with IP {request.IPAddress} wants to send you {request.Files.Count} file(s). Accept the request?",
+            $"Sender with IP {request.Sender.IP} wants to send you {request.Files.Count} file(s). Accept the request?",
              "Request to send files");
     }
 

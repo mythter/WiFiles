@@ -47,7 +47,7 @@ namespace Client.Services
 
         public event EventHandler<string>? ExceptionHandled;
 
-        public Func<RequestModel, Task<bool>>? OnSendFilesRequest { get; set; }
+        public Func<LocalRequestModel, Task<bool>>? OnSendFilesRequest { get; set; }
 
         private CancellationTokenSource? ListenerTokenSource { get; set; }
         private CancellationTokenSource? ClientTokenSource { get; set; }
@@ -130,7 +130,6 @@ namespace Client.Services
 
         private async Task SendRequestAsync(List<FileModel> filesToSend, NetworkStream stream, CancellationToken cancellationToken)
         {
-            DeviceInfoModel deviceInfo = _deviceService.GetCurrentDeviceInfo();
             List<FileMetadata> filesMetadata = filesToSend
                 .Select(f =>
                     new FileMetadata
@@ -140,13 +139,8 @@ namespace Client.Services
                     })
                 .ToList();
 
-            RequestModel request = new RequestModel
-            {
-                DeviceModel = deviceInfo.Model,
-                DeviceName = deviceInfo.Name,
-                DeviceType = deviceInfo.Type,
-                Files = filesMetadata
-            };
+            var localDevice = new LocalDeviceModel(_deviceService.GetCurrentDeviceInfo());
+            LocalRequestModel request = new LocalRequestModel(localDevice, filesMetadata);
 
             string requestJson = JsonSerializer.Serialize(request);
             byte[] requestBytes = Encoding.UTF8.GetBytes(requestJson);
@@ -156,13 +150,16 @@ namespace Client.Services
             await stream.WriteWithTimeoutAsync(requestBytes, SendTimeout, cancellationToken);
         }
 
-        private static async Task<RequestModel> ReceiveRequestAsync(NetworkStream stream, CancellationToken cancellationToken = default)
+        private static async Task<LocalRequestModel> ReceiveRequestAsync(TcpClient tcpClient, CancellationToken cancellationToken = default)
         {
+            var stream = tcpClient.GetStream();
             int requestSize = await stream.ReadInt32Async(cancellationToken);
             string requestJson = await stream.ReadStringAsync(requestSize, cancellationToken);
 
-            RequestModel request = JsonSerializer.Deserialize<RequestModel>(requestJson)
+            LocalRequestModel request = JsonSerializer.Deserialize<LocalRequestModel>(requestJson)
                 ?? throw new JsonException("Could not deserialize request JSON.");
+
+            request.Sender.IP = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address;
 
             return request;
         }
@@ -295,29 +292,33 @@ namespace Client.Services
 
         private async Task ProcessClientAsync(TcpClient tcpClient)
         {
+            // retrieving remote request
+            LocalRequestModel request = await ReceiveRequestAsync(tcpClient);
+
             NetworkStream stream = tcpClient.GetStream();
 
-            RequestModel request = await ReceiveRequestAsync(stream);
-            request.IPAddress = ((IPEndPoint)tcpClient.Client.RemoteEndPoint!).Address;
+            // getting current user response
+            bool isAccepted = await GetUserResponseAsync(request);
 
-            bool isAccepted = await GetUserResponseAsync(tcpClient, request);
-
+            // sending user response to the remote host
             await stream.WriteBooleanAsync(isAccepted);
 
+            // close connection if user declined request
             if (!isAccepted)
             {
                 tcpClient.Close();
                 return;
             }
 
-            IsReceiving = true;
-            ReceivingTokenSource = new CancellationTokenSource();
             try
             {
                 if (string.IsNullOrEmpty(_storageService.SaveFolder))
                 {
                     throw new InvalidOperationException("Destination folder not setted.");
                 }
+
+                IsReceiving = true;
+                ReceivingTokenSource = new CancellationTokenSource();
 
                 await ReceiveFilesAsync(stream, request.Files, ReceivingTokenSource.Token);
 
@@ -349,11 +350,10 @@ namespace Client.Services
             }
         }
 
-        private async Task<bool> GetUserResponseAsync(TcpClient tcpClient, RequestModel request)
+        private async Task<bool> GetUserResponseAsync(LocalRequestModel request)
         {
-            IPAddress? sender = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address;
-
             bool isAccepted = false;
+
             if (OnSendFilesRequest is not null)
             {
                 isAccepted = await OnSendFilesRequest.Invoke(request);
