@@ -137,7 +137,7 @@ namespace Client.Services
         {
             try
             {
-                while (cancellationToken.IsCancellationRequested)
+                while (!cancellationToken.IsCancellationRequested)
                 {
                     var result = await udpClient.ReceiveAsync(cancellationToken);
                     var foundDevice = GetLocalDeviceFromByteArray(result.Buffer);
