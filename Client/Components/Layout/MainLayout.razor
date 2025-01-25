@@ -16,9 +16,21 @@
              NavigationManager.Uri.Contains("/global"))
         {   
             <div class="menu">
-                <div class="item @(NavigationManager.Uri.Contains("/local") ? "active" : "")"
+                    <div class="nav">
+                        <input type="checkbox"> 
+                            <i class="ph ph-x icon"></i>
+                            <i class="ph ph-list icon"></i>
+                        <div class="items"> 
+                            <li class="@(NavigationManager.Uri.Contains("/local") ? "active" : "")"
                      @onclick="@(() => NavigationService.NavigateTo("local"))">
-                    Local
+                                <i class="ph ph-house-line"></i>
+                                LOCAL
+                                </li> 
+                            <li class="@(NavigationManager.Uri.Contains("/global") ? "active" : "")"
+                                @onclick="@(() => NavigationService.NavigateTo("global"))">
+                                <i class="ph ph-globe-hemisphere-west"></i>
+                                GLOBAL
+                            </li> 
                 </div>
                 <div class="item @(NavigationManager.Uri.Contains("/global") ? "active" : "")"
                      @onclick="@(() => NavigationService.NavigateTo("global"))">
