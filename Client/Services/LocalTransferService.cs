@@ -13,21 +13,18 @@ namespace Client.Services
 {
     //public delegate void StartReceivingFileEventHandler(FileModel file);
 
-    public class LocalTransferService
+    public class LocalTransferService : IDisposable
     {
         private readonly IDeviceService _deviceService;
         private readonly IStorageService _storageService;
 
+        private bool disposed;
+
         private TcpListener TcpListener { get; set; }
         private TcpClient TcpClient { get; set; }
 
-        public int PortListen { get; set; } = NetworkConstants.Port;
-        public int PortConnect { get; set; } = NetworkConstants.Port;
-
         public bool IsListening { get; private set; }
         public bool IsReceiving { get; private set; }
-
-        //public int BufferSize { get; set; } = 1024;
 
         public int ReceiveTimeout { get; set; } = 15_000;
         public int SendTimeout { get; set; } = 15_000;
@@ -58,7 +55,7 @@ namespace Client.Services
             _deviceService = deviceService;
             _storageService = storageService;
 
-            TcpListener = new TcpListener(IPAddress.Any, PortListen);
+            TcpListener = new TcpListener(IPAddress.Any, NetworkConstants.Port);
             TcpClient = new TcpClient();
         }
 
@@ -78,7 +75,7 @@ namespace Client.Services
 
                 ReceiverIp = ip;
                 ClientTokenSource = new CancellationTokenSource();
-                await TcpClient.ConnectAsync(ip, PortConnect, ClientTokenSource.Token);
+                await TcpClient.ConnectAsync(ip, NetworkConstants.Port, ClientTokenSource.Token);
                 NetworkStream stream = TcpClient.GetStream();
 
                 await SendRequestAsync(files, stream, ClientTokenSource.Token);
@@ -381,10 +378,34 @@ namespace Client.Services
         {
             return fileSize switch
             {                             // file size is:
-                < 10_485_760 => 1024,    // less than 10 MB
+                < 10_485_760  => 1024,    // less than 10 MB
                 < 104_857_600 => 4096,    // less than 100 MB
-                _ => 16384    // more or equal 100 MB
+                _             => 16384    // more or equal 100 MB
             };
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposed)
+            {
+                if (disposing)
+                {
+                    TcpClient?.Dispose();
+                    TcpListener?.Dispose();
+
+                    ClientTokenSource?.Dispose();
+                    ListenerTokenSource?.Dispose();
+                    ReceivingTokenSource?.Dispose();
+                }
+
+                disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }
