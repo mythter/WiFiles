@@ -1,5 +1,4 @@
-﻿using Client.Models;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using Client.Extensions;
@@ -12,8 +11,6 @@ using Domain.Enums;
 
 namespace Client.Services
 {
-    //public delegate void StartReceivingFileEventHandler(FileModel file);
-
     public class LocalTransferService : IDisposable
     {
         private readonly IDeviceService _deviceService;
@@ -67,6 +64,9 @@ namespace Client.Services
 
             try
             {
+                ClientTokenSource = new CancellationTokenSource();
+                var token = ClientTokenSource.Token;
+
                 if (TcpClient.Connected)
                 {
                     StopSending();
@@ -75,18 +75,17 @@ namespace Client.Services
                 }
 
                 ReceiverIp = ip;
-                ClientTokenSource = new CancellationTokenSource();
-                await TcpClient.ConnectAsync(ip, NetworkConstants.Port, ClientTokenSource.Token);
+                await TcpClient.ConnectAsync(ip, NetworkConstants.Port, token);
                 NetworkStream stream = TcpClient.GetStream();
 
-                await SendRequestAsync(files, stream, ClientTokenSource.Token);
+                await SendRequestAsync(files, stream, token);
 
                 // waiting for the response from the receiver
                 bool isAccepted = await stream.ReadBooleanAsync();
 
                 if (isAccepted)
                 {
-                    await SendFilesAsync(stream, files, ClientTokenSource.Token);
+                    await SendFilesAsync(stream, files, token);
 
                     SendingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
                 }
@@ -98,15 +97,16 @@ namespace Client.Services
             }
             catch (TimeoutException)
             {
-                ExceptionHandled?.Invoke(this, "Sending cacelled due to timeout.");
+                ExceptionHandled?.Invoke(this, "Sending cancelled due to timeout.");
             }
-            catch (OperationCanceledException ex)
+            catch (OperationCanceledException ex) when (!ClientTokenSource!.IsCancellationRequested)
             {
                 // if operation cancelled not by us show error message
-                if (ClientTokenSource is not null && !ClientTokenSource.Token.IsCancellationRequested)
-                {
-                    ExceptionHandled?.Invoke(this, ex.Message);
-                }
+                ExceptionHandled?.Invoke(this, ex.Message);
+            }
+            catch (OperationCanceledException)
+            {
+                // otherwise swallow it
             }
             catch (Exception ex)
             {
@@ -131,12 +131,7 @@ namespace Client.Services
         private async Task SendRequestAsync(List<FileModel> filesToSend, NetworkStream stream, CancellationToken cancellationToken)
         {
             List<FileMetadata> filesMetadata = filesToSend
-                .Select(f =>
-                    new FileMetadata
-                    {
-                        Name = Path.GetFileName(f.Path),
-                        Size = f.Size
-                    })
+                .Select(f => new FileMetadata(Path.GetFileName(f.Path), f.Size))
                 .ToList();
 
             var localDevice = new LocalDeviceModel(_deviceService.GetCurrentDeviceInfo());
@@ -373,16 +368,6 @@ namespace Client.Services
                 File.Delete(filePath);
                 ReceivingFileFailed?.Invoke(this, filePath);
             }
-        }
-
-        private static int GetBufferSizeByFileSize(long fileSize)
-        {
-            return fileSize switch
-            {                             // file size is:
-                < 10_485_760  => 1024,    // less than 10 MB
-                < 104_857_600 => 4096,    // less than 100 MB
-                _             => 16384    // more or equal 100 MB
-            };
         }
 
         protected virtual void Dispose(bool disposing)
