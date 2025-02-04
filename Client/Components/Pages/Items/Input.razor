@@ -1,0 +1,71 @@
+﻿@inject IJSRuntime js
+
+<input class="@Class"
+       @ref=InputElement
+       disabled="@IsDisabled"
+       value="@Text" 
+       placeholder="@Placeholder"
+       type="text"
+       maxlength="@MaxLength"
+       minlength="@MinLength"
+       @oninput="OnTextInput" 
+       style="@($"border-radius: {CornerRadius}px; text-align: {TextAlign}; font-size: {FontSize}; -webkit-font-feature-settings: {IsMonoValue}; font-feature-settings: {IsMonoValue};")" />
+
+@code {
+    IJSObjectReference jsModule = null!;
+
+    ElementReference InputElement { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public bool IsDisabled{ get; set; }
+
+    private string IsMonoValue => IsMono ? "\"tnum\"" : "";
+
+    [Parameter]
+    public bool IsMono { get; set; } 
+
+    [Parameter]
+    public string? Text { get; set; }
+
+    [Parameter]
+    public int CornerRadius { get; set; }
+
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    [Parameter]
+    public string? TextAlign { get; set; }
+
+    [Parameter]
+    public string? FontSize { get; set; }
+
+    [Parameter]
+    public int MaxLength { get; set; }
+
+    [Parameter]
+    public int MinLength { get; set; }
+
+    [Parameter]
+    public string? Pattern { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnTextChanged { get; set; }
+
+    async Task OnTextInput(ChangeEventArgs e)
+    {
+        Text = e.Value as string;
+        await OnTextChanged.InvokeAsync(Text);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Pattern is not null)
+        {
+            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/Input.razor.js");
+            await jsModule.InvokeVoidAsync("Input.InitPattern", InputElement, Pattern);
+        }
+    }
+}
