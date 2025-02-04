@@ -16,6 +16,8 @@ namespace Server
             builder.Services.AddSignalR();
 
             builder.Services.AddSingleton<ConnectionManager>();
+            builder.Services.AddSingleton<SessionManager>();
+
             var app = builder.Build();
 
 
