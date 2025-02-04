@@ -1,0 +1,36 @@
+﻿<div class="button @Class" style="@($"border-radius: {CornerRadius}px; width: {Width}; height: {Height}; min-width: {Width}; min-height: {Height};")">
+    <input type="button" @onclick="@OnClickHandler" disabled="@IsDisabled">
+    <div class="content">
+        <div class="label">
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public string? Width { get; set; }
+
+    [Parameter]
+    public string? Height { get; set; }
+
+    [Parameter]
+    public int CornerRadius { get; set; }
+
+    [Parameter]
+    public bool IsDisabled { get; set; }
+
+    [Parameter]
+    public EventCallback<MouseEventArgs> OnClick { get; set; }
+
+    private async Task OnClickHandler(MouseEventArgs args)
+    {
+        await OnClick.InvokeAsync(args);
+    }
+}
