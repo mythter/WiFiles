@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Serialization;
-using Client.Enums;
+using Domain.Enums;
 
-namespace Client.Models
+namespace Domain.Models
 {
     public class DeviceModel
     {

@@ -1,4 +1,4 @@
-﻿namespace Client.Constants
+﻿namespace Domain.Constants
 {
     public static class DeviceConstants
     {

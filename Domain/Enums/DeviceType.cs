@@ -1,4 +1,4 @@
-﻿namespace Client.Enums
+﻿namespace Domain.Enums
 {
     public enum DeviceModelType
     {

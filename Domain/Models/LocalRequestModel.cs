@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Client.Models
+namespace Domain.Models
 {
     public class LocalRequestModel : RequestModel
     {

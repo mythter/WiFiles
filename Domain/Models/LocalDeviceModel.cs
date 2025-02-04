@@ -1,9 +1,9 @@
 ﻿using System.Net;
 using System.Text.Json.Serialization;
-using Client.Constants;
-using Client.Enums;
+using Domain.Constants;
+using Domain.Enums;
 
-namespace Client.Models
+namespace Domain.Models
 {
     public class LocalDeviceModel : DeviceModel
     {

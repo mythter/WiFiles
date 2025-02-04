@@ -1,4 +1,4 @@
-﻿namespace Client.Models
+﻿namespace Domain.Models
 {
     public class RequestModel
     {
