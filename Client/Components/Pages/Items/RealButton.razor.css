@@ -77,11 +77,3 @@
     .transparent:hover {
         background-color: #00000020;
     }
-
-.left {
-    margin-right: auto;
-}
-
-.right {
-    margin-left: auto;
-}

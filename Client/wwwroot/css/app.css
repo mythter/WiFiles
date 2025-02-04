@@ -27,3 +27,11 @@
         transform: translateX(calc(-100% + var(--container-width)));
     }
 }
+
+.left {
+    margin-right: auto;
+}
+
+.right {
+    margin-left: auto;
+}

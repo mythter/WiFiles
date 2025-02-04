@@ -85,10 +85,21 @@
                     0 0 16px rgba(242, 153, 28,0.92);
             }
 
-.left {
-    margin-right: auto;
-}
+            .toggle.blink .label {
+                animation: blink-yellow 1s infinite;
+            }
 
-.right {
-    margin-left: auto;
+@keyframes blink-yellow {
+    0% {
+        color: rgba(0, 0, 0, 0.45);
+/*        text-shadow: none;*/
+    }
+    50% {
+        color: #fff8f5;
+        text-shadow: 0 0 2px rgba(233, 218, 210,0.92), 0 0 10px rgba(233, 218, 210,0.34), 0 0 4px rgba(242, 153, 28,0.52), 0 0 7px rgba(242, 153, 28,0.92), 0 0 11px rgba(242, 153, 28,0.78), 0 0 16px rgba(242, 153, 28,0.92);
+    }
+    100% {
+        color: rgba(0, 0, 0, 0.45);
+/*        text-shadow: none;*/
+    }
 }

@@ -10,9 +10,9 @@
     </RealButton>
     @if (SelectedFiles.Count > 0)
     {
-        <RealButton OnClick="@RemoveFiles">
+        <BadgeButton OnClick="@RemoveFiles" Count="SelectedFiles.Count">
             <i class="ph ph-trash"></i>
-        </RealButton>
+        </BadgeButton>
     }
     else if (StorageService.SendFiles.Count > 0)
     {
