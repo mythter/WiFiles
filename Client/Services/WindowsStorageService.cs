@@ -1,6 +1,6 @@
 ﻿using Client.Interfaces;
-using Client.Models;
 using CommunityToolkit.Maui.Storage;
+using Domain.Models;
 
 namespace Client.Services
 {

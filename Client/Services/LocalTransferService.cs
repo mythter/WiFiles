@@ -7,7 +7,8 @@ using Client.Constants;
 using Client.Interfaces;
 using System.Text.Json;
 using Client.Helpers;
-using Client.Enums;
+using Domain.Models;
+using Domain.Enums;
 
 namespace Client.Services
 {

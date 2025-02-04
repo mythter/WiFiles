@@ -1,4 +1,4 @@
-﻿using Client.Models;
+﻿using Domain.Models;
 
 namespace Client.Interfaces
 {

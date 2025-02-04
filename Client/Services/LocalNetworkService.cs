@@ -1,10 +1,11 @@
-﻿using Client.Constants;
-using Client.Interfaces;
-using Client.Models;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using Client.Constants;
+using Client.Interfaces;
+using Domain.Constants;
+using Domain.Models;
 
 namespace Client.Services
 {

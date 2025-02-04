@@ -1,8 +1,8 @@
 ﻿#if WINDOWS
 using System.Management;
-using Client.Enums;
+using Domain.Enums;
 using Client.Interfaces;
-using Client.Models;
+using Domain.Models;
 
 namespace Client.Services
 {

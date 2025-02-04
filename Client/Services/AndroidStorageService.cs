@@ -1,6 +1,6 @@
 ﻿#if ANDROID
 using Client.Interfaces;
-using Client.Models;
+using Domain.Models;
 
 namespace Client.Services
 {
