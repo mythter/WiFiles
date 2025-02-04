@@ -1,4 +1,5 @@
 using Server.Hubs;
+using Server.Services;
 
 namespace Server
 {
@@ -14,6 +15,7 @@ namespace Server
 
             builder.Services.AddSignalR();
 
+            builder.Services.AddSingleton<ConnectionManager>();
             var app = builder.Build();
 
 
