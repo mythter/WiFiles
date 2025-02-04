@@ -168,7 +168,7 @@ namespace Client.Services
             byte[] buffer;
             foreach (FileModel file in files)
             {
-                int bufferSize = GetBufferSizeByFileSize(file.Size);
+                int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
                 using FileStream fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
                 long size = fs.Length < bufferSize ? fs.Length : bufferSize;
                 buffer = new byte[size];
@@ -210,7 +210,7 @@ namespace Client.Services
 
                 long receivedSize = 0;
                 byte[] buffer;
-                int bufferSize = GetBufferSizeByFileSize(file.Size);
+                int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
                 while (receivedSize < file.Size)
                 {
                     buffer = new byte[bufferSize < file.Size - receivedSize ? bufferSize : file.Size - receivedSize];

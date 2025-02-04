@@ -17,5 +17,23 @@
 
             return filePath;
         }
+
+        public static int GetBufferSizeByFileSize(long fileSize)
+        {
+            return fileSize switch
+            {                             // file size is:
+                < 10_485_760  => 1024,    // less than 10 MB
+                < 104_857_600 => 4096,    // less than 100 MB
+                _             => 16384    // more or equal 100 MB
+            };
+        }
+
+        public static void DeleteFileIfExists(string? filePath)
+        {
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
     }
 }
