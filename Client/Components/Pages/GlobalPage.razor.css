@@ -1,0 +1,26 @@
+﻿.main {
+    padding: 10px;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 100%;
+    gap: 10px;
+}
+
+    .wrapper .field {
+        display: flex;
+        gap: 5px;
+    }
+
+    .wrapper .icon {
+        color: #dcdcdc;
+        font-size: 32px;
+        align-self: center;
+    }

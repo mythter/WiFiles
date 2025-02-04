@@ -1,7 +1,238 @@
 ﻿@page "/global"
+@using Blazored.LocalStorage
+@using Client.Constants
+@using Microsoft.Extensions.Logging
+@implements IDisposable
+@inject IStorageService StorageService
+@inject GlobalTransferService gts
+@inject NavigationService NavigationService
+@inject ILocalStorageService localStorage
+@inject IJSRuntime js
+@inject ILogger<GlobalPage> logger
 
-<h3>GlobalPage</h3>
+<Header>
+    <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
+    Count="StorageService.ReceiveFiles.Count">
+        <i class="ph ph-download-simple"></i>
+    </BadgeButton>
+    <BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
+    Count="StorageService.SendFiles.Count">
+        <i class="ph ph-upload-simple"></i>
+    </BadgeButton>
+    <RealToggleButton Class="@($"left {ConnectionButtonClass}")"
+    IsChecked="gts.ConnectionState == HubConnectionState.Connected"
+    OnClick="@(() => gts.ConnectionState != HubConnectionState.Disconnected ? DisconnetFromServer() : ConnectToServer())">
+        <i class="ph ph-power"></i>
+    </RealToggleButton>
+</Header>
+
+<div class="main">
+    <div class="wrapper">
+        <div class="field">
+            <Input CornerRadius="5"
+                   Text="@gts.SessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)"
+                   IsDisabled=true
+                   Pattern="__ ___ ___ ___"
+                   FontSize="30px"
+                   IsMono=true
+                   MaxLength="14"
+                   TextAlign="center" />
+            <RectangleRealButton CornerRadius="5"
+                   Width="35px"
+                   Height="35px"
+                   OnClick="@(async () => await jsModule.InvokeVoidAsync("ClipboardHelper.CopyToClipboard", gts.SessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)))">
+                <i class="ph ph-copy"></i>
+            </RectangleRealButton>
+        </div>
+        <i class="ph ph-arrow-down icon"></i>
+        <div class="field">
+            <Input CornerRadius="5"
+                   Text="@ReceiverId"
+                   Placeholder="Receiver ID"
+                   Pattern="__ ___ ___ ___"
+                   FontSize="30px"
+                   TextAlign="center"
+                   IsMono=true
+                   MaxLength="14"
+                   OnTextChanged="OnReceiverIdChange" />
+            <RectangleRealButton CornerRadius="5"
+                   Width="35px"
+                   Height="35px"
+                   OnClick="PasteIdFromClipboard">
+                <i class="ph ph-pen"></i>
+            </RectangleRealButton>
+        </div>
+
+        <RectangleRealButton
+        IsDisabled="gts.ConnectionState != HubConnectionState.Connected"
+        CornerRadius="5" 
+        OnClick="OnSendClick">@SendButtonText</RectangleRealButton>
+    </div>
+</div>
 
 @code {
 
+    private bool Connecting => gts.ConnectionState == HubConnectionState.Connecting || gts.ConnectionState == HubConnectionState.Reconnecting;
+
+    private string ConnectionButtonClass => Connecting ? "blink" : "";
+
+    private string? ReceiverId { get; set; }
+
+    private string SendButtonText => gts.IsSending ? "Cancel" : "Send";
+
+    IJSObjectReference jsModule = null!;
+
+    [CascadingParameter(Name = "MessageBox")]
+    private MessageBox MessageBoxElement { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        gts.Connected += OnConnected;
+        gts.Disconnected += OnDisconnected;
+        gts.SendingStarted += OnSendingStarted;
+        gts.SendingStopped += OnSendingStopped;
+
+        if (gts.IsSending)
+        {
+            ReceiverId = gts.ReceiverId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate);
+            await localStorage.SetItemAsync<string>(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+        }
+        else if (await localStorage.ContainKeyAsync(LocalStorageConstants.ReceiverIdKey))
+        {
+            ReceiverId = await localStorage.GetItemAsync<string>(LocalStorageConstants.ReceiverIdKey);
+            await localStorage.SetItemAsync<string>(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+        }
+    }
+
+    private void OnConnected(object? sender, long sessionId)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnDisconnected(object? sender, EventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSendingStarted(object? sender, EventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSendingStopped(object? sender, EventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnReceiverIdChange(string newText)
+    {
+        ReceiverId = newText;
+        await localStorage.SetItemAsync<string>(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+    }
+
+    private async Task PasteIdFromClipboard()
+    {
+        try
+        {
+            string? clipboardText = Clipboard.Default.HasText
+                ? await Clipboard.Default.GetTextAsync()
+                : await jsModule.InvokeAsync<string>("ClipboardHelper.ReadFromClipboard");
+
+            if (clipboardText is null)
+            {
+                return;
+            }
+
+            string numbers = new string(clipboardText.Where(c => char.IsDigit(c)).Take(11).ToArray());
+            if (long.TryParse(numbers, out long value))
+            {
+                ReceiverId = value.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate);
+                await localStorage.SetItemAsync<string>(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error occured while pasting from the clipboard.");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/ClipboardHelper.js");
+        }
+    }
+
+    private async Task ConnectToServer()
+    {
+       await gts.ConnectAsync();
+    }
+
+    private async Task DisconnetFromServer()
+    {
+        await gts.DisconnectAsync();
+    }
+
+    private async Task OnSendClick()
+    {
+        if (gts.IsSending)
+        {
+            gts.StopSending();
+        }
+        else
+        {
+            await StartSending();
+        }
+    }
+
+    private async Task StartSending()
+    {
+        if (TryParseSessionId(ReceiverId, out long receiverId))
+        {
+            if (receiverId == gts.SessionId)
+            {
+                MessageBoxElement.ShowWarning("You can't send files to yourself");
+                return;
+            }
+
+            await gts.StartSendingAsync(receiverId, StorageService.SendFiles.ToList());
+        }
+        else
+        {
+            MessageBoxElement.ShowWarning("Receiver ID is invalid");
+        }
+    }
+
+    private bool TryParseSessionId(string? input, out long sessionId)
+    {
+        sessionId = default;
+
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return false;
+        }
+
+        var numbers = new string(input.Where(c => char.IsDigit(c)).ToArray());
+
+        if (long.TryParse(numbers, out sessionId))
+        {
+            if (Math.Log10(sessionId) is >= 10 and <= 11)
+            {
+                return true;
+            }
+
+            sessionId = default;
+        }
+
+        return false;
+    }
+
+    public void Dispose()
+    {
+        gts.Connected -= OnConnected;
+        gts.Disconnected -= OnDisconnected;
+        gts.SendingStarted -= OnSendingStarted;
+        gts.SendingStopped -= OnSendingStopped;
+    }
 }
