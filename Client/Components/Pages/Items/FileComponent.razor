@@ -81,14 +81,17 @@
     {
         int percent = CalculateProgressPercent(progress);
 
-        if (File.CurrentProgress == File.Size)
+        if (Progress != percent)
         {
-            Progress = 100;
-            Status = "Finished";
-        }
-        else if (Progress != percent)
-        {
-            Progress = percent;
+            if (File.CurrentProgress == File.Size)
+            {
+                Progress = 100;
+                Status = "Finished";
+            }
+            else
+            {
+                Progress = percent;
+            }
             InvokeAsync(StateHasChanged);
         }
     }
