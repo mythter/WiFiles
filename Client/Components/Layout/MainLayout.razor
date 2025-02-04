@@ -4,41 +4,41 @@
 @inject NavigationManager NavigationManager
 @inject ILocalNetworkService lns
 @inject IStorageService StorageService
-@inject LocalTransferService TransferService
+@inject LocalTransferService LocalTransferService
+@inject GlobalTransferService GlobalTransferService
 
 <CascadingValue Value="@MessageBoxElement" Name="MessageBox">
-    <div class="page">
-        <main class="main">
-            @Body
-        </main>
+    <CascadingValue Value="@HubConnection" Name="HubConnection">
+        <div class="page">
+            <main class="main">
+                @Body
+            </main>
 
-        @if (NavigationManager.Uri.Contains("/local") ||
-             NavigationManager.Uri.Contains("/global"))
-        {   
-            <div class="menu">
+            @if (NavigationManager.Uri.Contains("/local") ||
+            NavigationManager.Uri.Contains("/global"))
+            {
+                <div class="menu">
                     <div class="nav">
-                        <input type="checkbox"> 
-                            <i class="ph ph-x icon"></i>
-                            <i class="ph ph-list icon"></i>
-                        <div class="items"> 
+                        <input type="checkbox">
+                        <i class="ph ph-x icon"></i>
+                        <i class="ph ph-list icon"></i>
+                        <div class="items">
                             <li class="@(NavigationManager.Uri.Contains("/local") ? "active" : "")"
-                     @onclick="@(() => NavigationService.NavigateTo("local"))">
+                            @onclick="@(() => NavigationService.NavigateTo("local"))">
                                 <i class="ph ph-house-line"></i>
                                 LOCAL
-                                </li> 
+                            </li>
                             <li class="@(NavigationManager.Uri.Contains("/global") ? "active" : "")"
-                                @onclick="@(() => NavigationService.NavigateTo("global"))">
+                            @onclick="@(() => NavigationService.NavigateTo("global"))">
                                 <i class="ph ph-globe-hemisphere-west"></i>
                                 GLOBAL
-                            </li> 
+                            </li>
+                        </div>
+                    </div>
                 </div>
-                <div class="item @(NavigationManager.Uri.Contains("/global") ? "active" : "")"
-                     @onclick="@(() => NavigationService.NavigateTo("global"))">
-                    Global
-                </div>
-            </div>
-        }
-    </div>
+            }
+        </div>
+    </CascadingValue>
 </CascadingValue>
 
 <MessageBox @ref="MessageBoxElement"></MessageBox>
@@ -47,29 +47,55 @@
 
     private MessageBox MessageBoxElement = null!;
 
-    protected override async Task OnInitializedAsync()
+    HubConnection? HubConnection { get; set; }
+
+    protected override void OnInitialized()
     {
+        #region Local transfer settings
+
         // listening for the incoming requests while the app is running
         _ = lns.StartMulticastListeningAsync();
 
-        TransferService.OnSendFilesRequest = ShowRequest;
+        LocalTransferService.OnSendFilesRequest = ShowRequest;
 
-        TransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
+        LocalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
 
-        TransferService.ReceivingFileStarted += AddReceivingFile;
-        TransferService.ReceivingFileFailed += RemoveReceivingFile;
-        TransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
+        LocalTransferService.ReceivingFileStarted += AddReceivingFile;
+        LocalTransferService.ReceivingFileFailed += RemoveReceivingFile;
+        LocalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
 
-        TransferService.ExceptionHandled += ShowError;
+        LocalTransferService.ExceptionHandled += ShowError;
+
+        #endregion
+
+        #region Global transfer settings
+
+        GlobalTransferService.OnSendFilesRequest = ShowRequest;
+
+        GlobalTransferService.ReceivingFileStarted += AddReceivingFile;
+        GlobalTransferService.ReceivingFileFailed += RemoveReceivingFile;
+
+        #endregion
 
         NavigationService.NavigateTo("local");
     }
 
-    private Task<bool> ShowRequest(LocalRequestModel request)
+    private Task<bool> ShowRequest(RequestModel request)
     {
-        return MessageBoxElement.ShowRequest(
-            $"Sender with IP {request.Sender.IP} wants to send you {request.Files.Count} file(s). Accept the request?",
-             "Request to send files");
+        if (request is LocalRequestModel localRequest)
+        {
+            return MessageBoxElement.ShowRequest(
+                $"Sender with IP {localRequest.Sender.IP} wants to send you {localRequest.Files.Count} file(s). Accept the request?",
+                 "Request to send files");
+        }
+        else if (request is GlobalRequestModel globalRequest)
+        {
+            return MessageBoxElement.ShowRequest(
+                $"Sender {globalRequest.SenderSessionId} wants to send you {globalRequest.Files.Count} file(s). Accept the request?",
+                 "Request to send files");
+        }
+
+        return Task.FromResult(false);
     }
 
     private void ShowError(object? sender, string message)
