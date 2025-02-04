@@ -6,8 +6,8 @@ namespace Client.Constants
     {
         public const int Port = 23969;
 
-        public static readonly IPAddress MulticastIP = new IPAddress(new byte[] { 224, 0, 0, 171 });
+        public static readonly IPAddress MulticastIP = new IPAddress([224, 0, 0, 171]);
 
-        public const int MulticastScanResponseTimeout = 10_000;
+        public const int MulticastScanResponseTimeout = 10_000; // timeout in milliseconds
     }
 }
