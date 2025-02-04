@@ -2,7 +2,7 @@
 @inject NavigationManager Navigation
 
 <div>
-    <h2>Connection Id: @HubConnection?.ConnectionId</h2>
+    <h2>Connection Id: @SessionId</h2>
     <input @bind=@ReceiverId />
     <button @onclick=@SendFile>Send file</button>
 </div>
@@ -10,20 +10,36 @@
 @code {
     HubConnection? HubConnection { get; set; }
 
-    public string? ReceiverId { get; set; }
+    public long? SessionId { get; set; }
+
+    public long? ReceiverId { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
         HubConnection = new HubConnectionBuilder()
-                                .WithUrl(Navigation.ToAbsoluteUri("/filehub"))
-                                .Build();
+                            .WithUrl(Navigation.ToAbsoluteUri("/filehub"))
+                            .Build();
+
+        ListenConnection();
 
         await HubConnection.StartAsync();
     }
 
+    private void ListenConnection()
+    {
+        if (HubConnection is not null)
+        {
+            HubConnection.On<long>("HubConnected", (sessionId) =>
+            {
+                SessionId = sessionId;
+                InvokeAsync(StateHasChanged);
+            });
+        }
+    }
+
     private async Task SendFile()
     {
-        string path = @"path";
+        string path = @"";
 
 
         if (HubConnection is not null)
@@ -32,7 +48,7 @@
             long size = file.Length < 16384 ? file.Length : 16384;
             byte[] buffer = new byte[size];
             int bytesRead;
-            await HubConnection.InvokeAsync("StartSendingFile", file.Length, ReceiverId);
+            await HubConnection.InvokeAsync("StartSendingFile", ReceiverId ,Path.GetFileName(file.Name), file.Length);
             while ((bytesRead = await file.ReadAsync(buffer, 0, buffer.Length)) > 0)
             {
                 if (bytesRead < buffer.Length)
@@ -40,7 +56,7 @@
                     Array.Resize(ref buffer, bytesRead);
                 }
 
-                await HubConnection.InvokeAsync("SendingFile", buffer, ReceiverId);
+                await HubConnection.InvokeAsync("SendingFile", ReceiverId, buffer);
             }
             await HubConnection.InvokeAsync("EndSendingFile", ReceiverId);
         }
