@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using Client.Constants;
+using Client.Extensions;
 using Client.Interfaces;
 using Domain.Constants;
 using Domain.Models;
@@ -17,44 +18,39 @@ namespace Client.Services
 
         private readonly INetworkInfoService _networkInfoService;
 
-        private UdpClient _udpListener;
+        private bool _disposed;
 
-        private bool _disposedValue;
-
-        private bool _listening;
+        private CancellationTokenSource? _listenTokenSource;
 
         public LocalNetworkService(IDeviceService deviceService, INetworkInfoService networkInfoService)
         {
             _deviceService = deviceService;
             _networkInfoService = networkInfoService;
-
-            _udpListener = new UdpClient();
         }
 
         public async Task StartMulticastListeningAsync()
         {
-            if (_listening)
+            if (_listenTokenSource is not null)
             {
                 return;
             }
 
-            _listening = true;
+            UdpClient udpListener = new();
 
-            foreach (var ip in _networkInfoService.GetNetworkInterfaceIPAddresses())
-            {
-                _udpListener.JoinMulticastGroup(NetworkConstants.MulticastIP, ip);
-            }
+            udpListener.JoinMulticastGroup(NetworkConstants.MulticastIP, _networkInfoService.GetNetworkInterfaceIPAddresses());
 
-            _udpListener.Client.Bind(new IPEndPoint(IPAddress.Any, NetworkConstants.Port));
+            udpListener.Client.Bind(new IPEndPoint(IPAddress.Any, NetworkConstants.Port));
 
             // on Windows only when this is setted it doesn't receive request from itself
-            _udpListener.MulticastLoopback = false;
+            udpListener.MulticastLoopback = false;
 
-            while (_listening)
+            try
             {
-                try
+                _listenTokenSource = new CancellationTokenSource();
+
+                while (!_listenTokenSource.IsCancellationRequested)
                 {
-                    var udpResult = await _udpListener.ReceiveAsync();
+                    var udpResult = await udpListener.ReceiveAsync(_listenTokenSource.Token);
                     var foundDevice = GetLocalDeviceFromByteArray(udpResult.Buffer);
 
                     // check if request is not coming from the current device
@@ -63,28 +59,22 @@ namespace Client.Services
                         foundDevice.IP = udpResult.RemoteEndPoint.Address;
                         DeviceFound?.Invoke(this, foundDevice);
 
-                        await SendMulticastResponseAsync(udpResult.RemoteEndPoint);
+                        await SendMulticastResponseAsync(udpListener, udpResult.RemoteEndPoint);
                     }
                 }
-                catch (ObjectDisposedException)
-                {
-                    // listening stopped
-                    break;
-                }
+            }
+            finally
+            {
+                _listenTokenSource?.Dispose();
+                _listenTokenSource = null;
+
+                udpListener.Dispose();
             }
         }
 
         public void StopMulticastListening()
         {
-            if (!_listening)
-            {
-                return;
-            }
-
-            _listening = false;
-
-            _udpListener.Close();
-            _udpListener = new UdpClient();
+            _listenTokenSource?.Cancel();
         }
 
         public async Task StartMulticastScanAsync(IPAddress networkInterfaceAddress)
@@ -117,21 +107,24 @@ namespace Client.Services
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!_disposedValue)
+            if (_disposed)
             {
-                if (disposing)
-                {
-                    _udpListener.Dispose();
-                }
-
-                _disposedValue = true;
+                return;
             }
+
+            if (disposing)
+            {
+                _listenTokenSource?.Dispose();
+                _listenTokenSource = null;
+            }
+
+            _disposed = true;
         }
 
-        private async Task SendMulticastResponseAsync(IPEndPoint requestEndpoint)
+        private async Task SendMulticastResponseAsync(UdpClient udpListener, IPEndPoint requestEndpoint)
         {
             var responseBytes = GetCurrentLocalDeviceBytes();
-            await _udpListener.SendAsync(responseBytes, responseBytes.Length, requestEndpoint);
+            await udpListener.SendAsync(responseBytes, responseBytes.Length, requestEndpoint);
         }
 
         private async Task ListenForMulticastResponsesAsync(UdpClient udpClient, CancellationToken cancellationToken)
