@@ -5,7 +5,7 @@ namespace Server.Services
     public class SessionManager
     {
         private readonly List<Session> _sessions = [];
-        
+
         private readonly SemaphoreSlim _semaphore = new(1, 1);
 
         public IReadOnlyList<Session> Sessions => _sessions.AsReadOnly();
@@ -20,57 +20,89 @@ namespace Server.Services
             _semaphore.Release();
         }
 
+        public async Task<Session?> GetBySenderConnectionId(string senderConnectionId)
+        {
+            return await ReturnWithLockAsync(() =>
+            {
+                return _sessions.SingleOrDefault(s => s.SenderConnectionId == senderConnectionId);
+            });
+        }
+
+        public async Task<Session?> GetByReceiverConnectionIdAsync(string receiverSessionId)
+        {
+            return await ReturnWithLockAsync(() =>
+            {
+                return _sessions.SingleOrDefault(s => s.ReceiverConnectionId == receiverSessionId);
+            });
+        }
+
+        public async Task<Session?> GetBySenderAndReceiverConnectionIdAsync(string senderConnectionId, string receiverSessionId)
+        {
+            return await ReturnWithLockAsync(() =>
+            {
+                return _sessions.SingleOrDefault(s => s.SenderConnectionId == senderConnectionId && s.ReceiverConnectionId == receiverSessionId);
+            });
+        }
+
         public async Task AddAsync(string senderId, string receiverId)
         {
-            await _semaphore.WaitAsync();
-            try
+            await DoWithLockAsync(() =>
             {
                 _sessions.Add(new Session(senderId, receiverId));
-            }
-            finally
-            {
-                _semaphore.Release();
-            }
+            });
         }
 
         public async Task<bool> TryAddAsync(string senderId, string receiverId)
         {
-            await _semaphore.WaitAsync();
-            try
+            return await ReturnWithLockAsync(() =>
             {
                 if (!_sessions.Exists(s => s.SenderConnectionId == senderId && s.ReceiverConnectionId == receiverId))
                 {
                     _sessions.Add(new Session(senderId, receiverId));
                     return true;
                 }
-            }
-            finally
-            {
-                _semaphore.Release();
-            }
-
-            return false;
+                return false;
+            });
         }
 
         public async Task RemoveBySenderAsync(string senderId)
         {
-            await _semaphore.WaitAsync();
-            try
+            await DoWithLockAsync(() =>
             {
                 _sessions.RemoveAll(s => s.SenderConnectionId == senderId);
-            }
-            finally
-            {
-                _semaphore.Release();
-            }
+            });
         }
 
         public async Task RemoveByReceiverAsync(string receiverId)
         {
+            await DoWithLockAsync(() =>
+            {
+                _sessions.RemoveAll(s => s.ReceiverConnectionId == receiverId);
+            });
+        }
+
+        public async Task RemoveByConnectionIdAsync(string connectionId)
+        {
+            await DoWithLockAsync(() =>
+            {
+                _sessions.RemoveAll(s => s.SenderConnectionId == connectionId || s.ReceiverConnectionId == connectionId);
+            });
+        }
+
+        public async Task Remove(Session session)
+        {
+            await DoWithLockAsync(() =>
+            {
+                _sessions.Remove(session);
+            });
+        }
+
+        private async Task DoWithLockAsync(Action action)
+        {
             await _semaphore.WaitAsync();
             try
             {
-                _sessions.RemoveAll(s => s.ReceiverConnectionId == receiverId);
+                action();
             }
             finally
             {
@@ -78,12 +110,12 @@ namespace Server.Services
             }
         }
 
-        public async Task RemoveByConnectionIdAsync(string connectionId)
+        private async Task<T> ReturnWithLockAsync<T>(Func<T> action)
         {
             await _semaphore.WaitAsync();
             try
             {
-                _sessions.RemoveAll(s => s.SenderConnectionId == connectionId || s.ReceiverConnectionId == connectionId);
+                return action();
             }
             finally
             {
