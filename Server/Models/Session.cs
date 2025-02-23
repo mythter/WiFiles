@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Threading.Channels;
-using Domain.Models;
 
 namespace Server.Models
 {
@@ -15,6 +14,21 @@ namespace Server.Models
         {
             SenderConnectionId = senderid;
             ReceiverConnectionId = receiverId;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj is Session other)
+            {
+                return SenderConnectionId == other.SenderConnectionId && ReceiverConnectionId == other.ReceiverConnectionId;
+            }
+
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(SenderConnectionId, ReceiverConnectionId);
         }
     }
 }
