@@ -18,8 +18,10 @@ namespace Server
             builder.Services.AddSingleton<ConnectionManager>();
             builder.Services.AddSingleton<SessionManager>();
 
-            var app = builder.Build();
+            builder.Logging.ClearProviders();
+            builder.Logging.AddConsole();
 
+            var app = builder.Build();
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())

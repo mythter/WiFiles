@@ -25,6 +25,14 @@
             public const string SenderDisconnected = "SenderDisconnected";
 
             public const string ReceiverDisconnected = "ReceiverDisconnected";
+
+            public const string CancelReceiving = "CancelReceiving";
+
+            public const string CancelSending = "CancelSending";
+
+            public const string SendingCancelled = "SendingCancelled";
+
+            public const string ReceivingCancelled = "ReceivingCancelled";
         }
     }
 }
