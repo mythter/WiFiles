@@ -72,12 +72,22 @@
 
         GlobalTransferService.OnSendFilesRequest = ShowRequest;
 
+        GlobalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
+
         GlobalTransferService.ReceivingFileStarted += AddReceivingFile;
         GlobalTransferService.ReceivingFileFailed += RemoveReceivingFile;
+        GlobalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
+
+        GlobalTransferService.ReceivingCancelled += OnReceivingCancelled;
+        GlobalTransferService.SendingCancelled += OnSendingCancelled;
+
+        GlobalTransferService.ReceiverDisconnected += OnReceiverDisconnected;
+        GlobalTransferService.SenderDisconnected += OnSenderDisconnected;
 
         #endregion
 
-        NavigationService.NavigateTo("local");
+        // NavigationService.NavigateTo("local");
+        NavigationService.NavigateTo("global");
     }
 
     private Task<bool> ShowRequest(RequestModel request)
@@ -111,6 +121,26 @@
     private void OnSendingFinishedSuccessfully(object? sender, EventArgs e)
     {
         MessageBoxElement.ShowInfo("All files sent successfully.", "Sending finished");
+    }
+
+    private void OnReceivingCancelled(object? sender, EventArgs e)
+    {
+        MessageBoxElement.ShowInfo("Receiver cancelled the transfer.", "Transfer stopped");
+    }
+
+    private void OnSendingCancelled(object? sender, EventArgs e)
+    {
+        MessageBoxElement.ShowInfo("Sender cancelled the transfer.", "Transfer stopped");
+    }
+
+    private void OnReceiverDisconnected(object? sender, EventArgs e)
+    {
+        MessageBoxElement.ShowInfo("Receiver disconnected.", "Transfer stopped");
+    }
+
+    private void OnSenderDisconnected(object? sender, EventArgs e)
+    {
+        MessageBoxElement.ShowInfo("Sender disconnected.", "Transfer stopped");
     }
 
     private void AddReceivingFile(object? sender, FileModel file)
