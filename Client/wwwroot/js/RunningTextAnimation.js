@@ -4,6 +4,9 @@
     static delay;
 
     static Init(container, element, animationSpeed = 12, animationDelay = 3000) {
+
+        if (!container || !element) return;
+
         this.speed = animationSpeed;
         this.delay = animationDelay;
         let containerWidth = this.GetContainerWidth(container);
