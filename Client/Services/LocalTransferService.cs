@@ -1,13 +1,13 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using Client.Extensions;
-using Client.Constants;
-using Client.Interfaces;
 using System.Text.Json;
+using Client.Constants;
+using Client.Extensions;
 using Client.Helpers;
-using Domain.Models;
+using Client.Interfaces;
 using Domain.Enums;
+using Domain.Models;
 
 namespace Client.Services
 {
@@ -19,7 +19,6 @@ namespace Client.Services
         private bool disposed;
 
         private TcpListener TcpListener { get; set; }
-        private TcpClient TcpClient { get; set; }
 
         public bool IsListening { get; private set; }
         public bool IsReceiving { get; private set; }
@@ -54,29 +53,24 @@ namespace Client.Services
             _storageService = storageService;
 
             TcpListener = new TcpListener(IPAddress.Any, NetworkConstants.Port);
-            TcpClient = new TcpClient();
         }
 
         public async Task StartSendingAsync(IPAddress ip, List<FileModel> files)
         {
-            if (files is null || files.Count == 0)
+            if (files is null || files.Count == 0 || ClientTokenSource is not null)
                 return;
+
+            var tcpClient = new TcpClient();
+
+            ClientTokenSource = new CancellationTokenSource();
+            var token = ClientTokenSource.Token;
 
             try
             {
-                ClientTokenSource = new CancellationTokenSource();
-                var token = ClientTokenSource.Token;
-
-                if (TcpClient.Connected)
-                {
-                    StopSending();
-                    TcpClient.Close();
-                    TcpClient = new TcpClient();
-                }
-
                 ReceiverIp = ip;
-                await TcpClient.ConnectAsync(ip, NetworkConstants.Port, token);
-                NetworkStream stream = TcpClient.GetStream();
+
+                await tcpClient.ConnectAsync(ip, NetworkConstants.Port, token);
+                NetworkStream stream = tcpClient.GetStream();
 
                 await SendRequestAsync(files, stream, token);
 
@@ -90,8 +84,8 @@ namespace Client.Services
                     SendingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
                 }
             }
-            catch (Exception ex) when (ex is SocketException sex1 && (sex1.SocketErrorCode == SocketError.Shutdown || sex1.SocketErrorCode == SocketError.ConnectionReset) ||
-                                       ex is IOException && ex.InnerException is SocketException sex2 && (sex2.SocketErrorCode == SocketError.Shutdown || sex2.SocketErrorCode == SocketError.ConnectionReset))
+            catch (Exception ex) when (ex is SocketException sex1 && (sex1.SocketErrorCode is SocketError.Shutdown or SocketError.ConnectionReset or SocketError.ConnectionAborted) ||
+                                       ex is IOException && ex.InnerException is SocketException sex2 && (sex2.SocketErrorCode is SocketError.Shutdown or SocketError.ConnectionReset or SocketError.ConnectionAborted))
             {
                 ExceptionHandled?.Invoke(this, "It seems the receiver cancelled the operation.");
             }
@@ -99,7 +93,7 @@ namespace Client.Services
             {
                 ExceptionHandled?.Invoke(this, "Sending cancelled due to timeout.");
             }
-            catch (OperationCanceledException ex) when (!ClientTokenSource!.IsCancellationRequested)
+            catch (OperationCanceledException ex) when (!ClientTokenSource.IsCancellationRequested)
             {
                 // if operation cancelled not by us show error message
                 ExceptionHandled?.Invoke(this, ex.Message);
@@ -114,11 +108,12 @@ namespace Client.Services
             }
             finally
             {
+                tcpClient.Close();
+
                 ClientTokenSource?.Dispose();
                 ClientTokenSource = null;
+
                 ReceiverIp = null;
-                TcpClient.Close();
-                TcpClient = new TcpClient();
             }
         }
 
@@ -194,7 +189,7 @@ namespace Client.Services
         private async Task ReceiveFileAsync(NetworkStream stream, FileMetadata fileMetadata, CancellationToken cancellationToken)
         {
             string filePath = FileHelper.GetUniqueFilePath(fileMetadata.Name, _storageService.SaveFolder);
-            FileModel file = new FileModel(filePath, fileMetadata.Size)
+            FileModel file = new(filePath, fileMetadata.Size)
             {
                 Status = TransferStatus.InProgress
             };
@@ -225,7 +220,7 @@ namespace Client.Services
             catch (Exception)
             {
                 file.Status = TransferStatus.Failed;
-                DeleteFileIfExists(file.Path);
+                HandleFailedFile(file.Path);
                 throw;
             }
         }
@@ -245,7 +240,7 @@ namespace Client.Services
                     _ = ProcessClientAsync(tcpClient);
                 }
             }
-            catch (OperationCanceledException ex)
+            catch (OperationCanceledException)
             {
                 // listening stopped by user
             }
@@ -255,26 +250,35 @@ namespace Client.Services
             }
             finally
             {
-                // IsListening true means that listening is not stopped by user
-                if (IsListening)
-                {
-                    await StopListeningAsync();
-                }
-
                 ListenerTokenSource?.Dispose();
                 ListenerTokenSource = null;
+
+                await StopListeningAsync();
             }
         }
 
         public async Task StopListeningAsync()
         {
-            IsListening = false;
+            if (!IsListening)
+            {
+                return;
+            }
+
             if (ListenerTokenSource is not null)
             {
                 await ListenerTokenSource.CancelAsync();
             }
 
-            TcpListener.Stop();
+            try
+            {
+                TcpListener.Stop();
+            }
+            catch (Exception)
+            {
+                // ignore
+            }
+
+            IsListening = false;
             ListeningStopped?.Invoke(this, EventArgs.Empty);
         }
 
@@ -282,20 +286,19 @@ namespace Client.Services
         {
             IsReceiving = false;
             ReceivingTokenSource?.Cancel();
-            ReceivingTokenSource = null;
         }
 
         private async Task ProcessClientAsync(TcpClient tcpClient)
         {
-            // retrieving remote request
-            LocalRequestModel request = await ReceiveRequestAsync(tcpClient);
-
             NetworkStream stream = tcpClient.GetStream();
+
+            // retrieving request from the remote host
+            LocalRequestModel request = await ReceiveRequestAsync(tcpClient);
 
             // getting current user response
             bool isAccepted = await GetUserResponseAsync(request);
 
-            // sending user response to the remote host
+            // sending response to the remote host
             await stream.WriteBooleanAsync(isAccepted);
 
             // close connection if user declined request
@@ -337,12 +340,9 @@ namespace Client.Services
             }
             finally
             {
-                if (IsReceiving)
-                {
-                    IsReceiving = false;
-                    ReceivingTokenSource?.Dispose();
-                    ReceivingTokenSource = null;
-                }
+                IsReceiving = false;
+                ReceivingTokenSource?.Dispose();
+                ReceivingTokenSource = null;
 
                 tcpClient.Close();
                 ReceivingStopped?.Invoke(this, EventArgs.Empty);
@@ -361,13 +361,10 @@ namespace Client.Services
             return isAccepted;
         }
 
-        private void DeleteFileIfExists(string? filePath)
+        private void HandleFailedFile(string filePath)
         {
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-                ReceivingFileFailed?.Invoke(this, filePath);
-            }
+            FileHelper.DeleteFileIfExists(filePath);
+            ReceivingFileFailed?.Invoke(this, filePath);
         }
 
         protected virtual void Dispose(bool disposing)
@@ -376,7 +373,6 @@ namespace Client.Services
             {
                 if (disposing)
                 {
-                    TcpClient?.Dispose();
                     TcpListener?.Dispose();
 
                     ClientTokenSource?.Dispose();
