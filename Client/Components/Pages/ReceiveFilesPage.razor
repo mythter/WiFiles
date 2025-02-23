@@ -1,7 +1,8 @@
 ﻿@page "/receivefiles"
 @using System.Net
 @inject NavigationService NavigationService
-@inject LocalTransferService TransferService
+@inject LocalTransferService lts
+@inject GlobalTransferService gts
 @inject IStorageService StorageService
 @inject IJSRuntime js
 @implements IDisposable
@@ -10,9 +11,9 @@
     <RealButton OnClick="@PickFolder">
         <i class="ph ph-folder-notch"></i>
     </RealButton>
-    @if (TransferService.IsReceiving)
+    @if (lts.IsReceiving || gts.IsReceiving)
     {
-        <RealButton OnClick="@TransferService.StopReceiving">
+        <RealButton OnClick="@StopReceiving">
             <i class="ph ph-x"></i>
         </RealButton>
     }
@@ -46,14 +47,14 @@
     [CascadingParameter(Name = "MessageBox")]
     public MessageBox MessageBoxElement { get; set; }
 
-    IJSObjectReference jsModule;
+    IJSObjectReference jsModule = null!;
 
     ElementReference ElementFolderContainer;
     ElementReference ElementFolder;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        TransferService.ReceivingStopped += OnReceivingStopped;
+        lts.ReceivingStopped += OnReceivingStopped;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -62,6 +63,19 @@
         {
             jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
             await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementFolderContainer, ElementFolder);
+        }
+    }
+
+    private void StopReceiving()
+    {
+        if (lts.IsReceiving)
+        {
+            lts.StopReceiving();
+        }
+
+        if (gts.IsReceiving)
+        {
+            gts.StopReceiving();
         }
     }
 
@@ -96,6 +110,6 @@
 
     public void Dispose()
     {
-        TransferService.ReceivingStopped -= OnReceivingStopped;
+        lts.ReceivingStopped -= OnReceivingStopped;
     }
 }
