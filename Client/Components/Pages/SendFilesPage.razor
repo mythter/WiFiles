@@ -21,7 +21,7 @@
 		</RealButton>
 	}
 	<RealButton Class="transparent left" OnClick="NavigationService.NavigateBack">
-		 <i class="ph ph-arrow-left"></i>
+		<i class="ph ph-arrow-left"></i>
 	</RealButton>
 </Header>
 
@@ -41,7 +41,7 @@
 
 @code {
 	[CascadingParameter(Name = "MessageBox")]
-	private MessageBox MessageBoxElement { get; set; }
+	private MessageBox MessageBoxElement { get; set; } = null!;
 
 	private List<FileModel> SelectedFiles { get; set; } = new();
 
