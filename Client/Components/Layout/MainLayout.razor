@@ -8,157 +8,153 @@
 @inject GlobalTransferService GlobalTransferService
 
 <CascadingValue Value="@MessageBoxElement" Name="MessageBox">
-    <CascadingValue Value="@HubConnection" Name="HubConnection">
-        <div class="page">
-            <main class="main">
-                @Body
-            </main>
+	<div class="page">
+		<main class="main">
+			@Body
+		</main>
 
-            @if (NavigationManager.Uri.Contains("/local") ||
-            NavigationManager.Uri.Contains("/global"))
-            {
-                <div class="menu">
-                    <div class="nav">
-                        <input type="checkbox">
-                        <i class="ph ph-x icon"></i>
-                        <i class="ph ph-list icon"></i>
-                        <div class="items">
-                            <li class="@(NavigationManager.Uri.Contains("/local") ? "active" : "")"
-                            @onclick="@(() => NavigationService.NavigateTo("local"))">
-                                <i class="ph ph-house-line"></i>
-                                LOCAL
-                            </li>
-                            <li class="@(NavigationManager.Uri.Contains("/global") ? "active" : "")"
-                            @onclick="@(() => NavigationService.NavigateTo("global"))">
-                                <i class="ph ph-globe-hemisphere-west"></i>
-                                GLOBAL
-                            </li>
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
-    </CascadingValue>
+		@if (NavigationManager.Uri.Contains("/local") ||
+		NavigationManager.Uri.Contains("/global"))
+		{
+			<div class="menu">
+				<div class="nav">
+					<input type="checkbox">
+					<i class="ph ph-x icon"></i>
+					<i class="ph ph-list icon"></i>
+					<div class="items">
+						<li class="@(NavigationManager.Uri.Contains("/local") ? "active" : "")"
+						@onclick="@(() => NavigationService.NavigateTo("local"))">
+							<i class="ph ph-house-line"></i>
+							LOCAL
+						</li>
+						<li class="@(NavigationManager.Uri.Contains("/global") ? "active" : "")"
+						@onclick="@(() => NavigationService.NavigateTo("global"))">
+							<i class="ph ph-globe-hemisphere-west"></i>
+							GLOBAL
+						</li>
+					</div>
+				</div>
+			</div>
+		}
+	</div>
 </CascadingValue>
 
 <MessageBox @ref="MessageBoxElement"></MessageBox>
 
 @code {
 
-    private MessageBox MessageBoxElement = null!;
+	private MessageBox MessageBoxElement = null!;
 
-    HubConnection? HubConnection { get; set; }
+	protected override void OnInitialized()
+	{
+		#region Local transfer settings
 
-    protected override void OnInitialized()
-    {
-        #region Local transfer settings
+		// listening for the incoming requests while the app is running
+		_ = lns.StartMulticastListeningAsync();
 
-        // listening for the incoming requests while the app is running
-        _ = lns.StartMulticastListeningAsync();
+		LocalTransferService.OnSendFilesRequest = ShowRequest;
 
-        LocalTransferService.OnSendFilesRequest = ShowRequest;
+		LocalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
 
-        LocalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
+		LocalTransferService.ReceivingFileStarted += AddReceivingFile;
+		LocalTransferService.ReceivingFileFailed += RemoveReceivingFile;
+		LocalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
 
-        LocalTransferService.ReceivingFileStarted += AddReceivingFile;
-        LocalTransferService.ReceivingFileFailed += RemoveReceivingFile;
-        LocalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
+		LocalTransferService.ExceptionHandled += ShowError;
 
-        LocalTransferService.ExceptionHandled += ShowError;
+		#endregion
 
-        #endregion
+		#region Global transfer settings
 
-        #region Global transfer settings
+		GlobalTransferService.OnSendFilesRequest = ShowRequest;
 
-        GlobalTransferService.OnSendFilesRequest = ShowRequest;
+		GlobalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
 
-        GlobalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
+		GlobalTransferService.ReceivingFileStarted += AddReceivingFile;
+		GlobalTransferService.ReceivingFileFailed += RemoveReceivingFile;
+		GlobalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
 
-        GlobalTransferService.ReceivingFileStarted += AddReceivingFile;
-        GlobalTransferService.ReceivingFileFailed += RemoveReceivingFile;
-        GlobalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
+		GlobalTransferService.ReceivingCancelled += OnReceivingCancelled;
+		GlobalTransferService.SendingCancelled += OnSendingCancelled;
 
-        GlobalTransferService.ReceivingCancelled += OnReceivingCancelled;
-        GlobalTransferService.SendingCancelled += OnSendingCancelled;
+		GlobalTransferService.ReceiverDisconnected += OnReceiverDisconnected;
+		GlobalTransferService.SenderDisconnected += OnSenderDisconnected;
 
-        GlobalTransferService.ReceiverDisconnected += OnReceiverDisconnected;
-        GlobalTransferService.SenderDisconnected += OnSenderDisconnected;
+		#endregion
 
-        #endregion
+		NavigationService.NavigateTo("local");
+		// NavigationService.NavigateTo("global");
+	}
 
-        // NavigationService.NavigateTo("local");
-        NavigationService.NavigateTo("global");
-    }
+	private Task<bool> ShowRequest(RequestModel request)
+	{
+		if (request is LocalRequestModel localRequest)
+		{
+			return MessageBoxElement.ShowRequest(
+				$"Sender with IP {localRequest.Sender.IP} wants to send you {localRequest.Files.Count} file(s). Accept the request?",
+				 "Request to send files");
+		}
+		else if (request is GlobalRequestModel globalRequest)
+		{
+			return MessageBoxElement.ShowRequest(
+				$"Sender {globalRequest.SenderSessionId} wants to send you {globalRequest.Files.Count} file(s). Accept the request?",
+				 "Request to send files");
+		}
 
-    private Task<bool> ShowRequest(RequestModel request)
-    {
-        if (request is LocalRequestModel localRequest)
-        {
-            return MessageBoxElement.ShowRequest(
-                $"Sender with IP {localRequest.Sender.IP} wants to send you {localRequest.Files.Count} file(s). Accept the request?",
-                 "Request to send files");
-        }
-        else if (request is GlobalRequestModel globalRequest)
-        {
-            return MessageBoxElement.ShowRequest(
-                $"Sender {globalRequest.SenderSessionId} wants to send you {globalRequest.Files.Count} file(s). Accept the request?",
-                 "Request to send files");
-        }
+		return Task.FromResult(false);
+	}
 
-        return Task.FromResult(false);
-    }
+	private void ShowError(object? sender, string message)
+	{
+		MessageBoxElement.ShowError(message);
+	}
 
-    private void ShowError(object? sender, string message)
-    {
-        MessageBoxElement.ShowError(message);
-    }
+	private void OnReceivingFinishedSuccessfully(object? sender, EventArgs e)
+	{
+		MessageBoxElement.ShowInfo("All files received successfully.", "Receiving finished");
+	}
 
-    private void OnReceivingFinishedSuccessfully(object? sender, EventArgs e)
-    {
-        MessageBoxElement.ShowInfo("All files received successfully.", "Receiving finished");
-    }
+	private void OnSendingFinishedSuccessfully(object? sender, EventArgs e)
+	{
+		MessageBoxElement.ShowInfo("All files sent successfully.", "Sending finished");
+	}
 
-    private void OnSendingFinishedSuccessfully(object? sender, EventArgs e)
-    {
-        MessageBoxElement.ShowInfo("All files sent successfully.", "Sending finished");
-    }
+	private void OnReceivingCancelled(object? sender, EventArgs e)
+	{
+		MessageBoxElement.ShowInfo("Receiver cancelled the transfer.", "Transfer stopped");
+	}
 
-    private void OnReceivingCancelled(object? sender, EventArgs e)
-    {
-        MessageBoxElement.ShowInfo("Receiver cancelled the transfer.", "Transfer stopped");
-    }
+	private void OnSendingCancelled(object? sender, EventArgs e)
+	{
+		MessageBoxElement.ShowInfo("Sender cancelled the transfer.", "Transfer stopped");
+	}
 
-    private void OnSendingCancelled(object? sender, EventArgs e)
-    {
-        MessageBoxElement.ShowInfo("Sender cancelled the transfer.", "Transfer stopped");
-    }
+	private void OnReceiverDisconnected(object? sender, EventArgs e)
+	{
+		MessageBoxElement.ShowInfo("Receiver disconnected.", "Transfer stopped");
+	}
 
-    private void OnReceiverDisconnected(object? sender, EventArgs e)
-    {
-        MessageBoxElement.ShowInfo("Receiver disconnected.", "Transfer stopped");
-    }
+	private void OnSenderDisconnected(object? sender, EventArgs e)
+	{
+		MessageBoxElement.ShowInfo("Sender disconnected.", "Transfer stopped");
+	}
 
-    private void OnSenderDisconnected(object? sender, EventArgs e)
-    {
-        MessageBoxElement.ShowInfo("Sender disconnected.", "Transfer stopped");
-    }
+	private void AddReceivingFile(object? sender, FileModel file)
+	{
+		StorageService.ReceiveFiles.Add(file);
+		InvokeAsync(StateHasChanged);
+	}
 
-    private void AddReceivingFile(object? sender, FileModel file)
-    {
-        StorageService.ReceiveFiles.Add(file);
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void RemoveReceivingFile(object? sender, string filePath)
-    {
-        for (int i = StorageService.ReceiveFiles.Count - 1; i >= 0; i--)
-        {
-            if (StorageService.ReceiveFiles[i].Path == filePath)
-            {
-                StorageService.ReceiveFiles.Remove(StorageService.ReceiveFiles[i]);
-                break;
-            }
-        }
-        InvokeAsync(StateHasChanged);
-    }
+	private void RemoveReceivingFile(object? sender, string filePath)
+	{
+		for (int i = StorageService.ReceiveFiles.Count - 1; i >= 0; i--)
+		{
+			if (StorageService.ReceiveFiles[i].Path == filePath)
+			{
+				StorageService.ReceiveFiles.Remove(StorageService.ReceiveFiles[i]);
+				break;
+			}
+		}
+		InvokeAsync(StateHasChanged);
+	}
 }
