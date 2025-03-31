@@ -2,8 +2,8 @@
 
 namespace Client.Interfaces
 {
-    public interface IDeviceService
-    {
-        DeviceModel GetCurrentDeviceInfo();
-    }
+	public interface IDeviceService
+	{
+		DeviceModel GetCurrentDeviceInfo();
+	}
 }

@@ -1,10 +1,10 @@
 ﻿namespace Domain.Enums
 {
-    public enum TransferStatus
-    {
-        Pending,
-        InProgress,
-        Finished,
-        Failed
-    }
+	public enum TransferStatus
+	{
+		Pending,
+		InProgress,
+		Finished,
+		Failed
+	}
 }

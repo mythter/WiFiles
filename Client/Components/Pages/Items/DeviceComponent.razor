@@ -4,81 +4,81 @@
 @inject LocalTransferService TransferService
 
 @{
-    var sendBtnClass = IsSendBtnVisible ? "" : "hidden";
+	var sendBtnClass = IsSendBtnVisible ? "" : "hidden";
 }
 
 
 <div class="device" @ref="ElementDevice" tabindex="0"
-     @onclick="@(() => {
-        if(TransferService.ReceiverIp is null /*|| !TransferService.ReceiverIp.Equals(Ip)*/)
-        {
-            IsSendBtnVisible = true;
-        }
-     })"
-     @onfocusout="@(() => IsSendBtnVisible = false)">
+	 @onclick="@(() => {
+		if(TransferService.ReceiverIp is null /*|| !TransferService.ReceiverIp.Equals(Ip)*/)
+		{
+			IsSendBtnVisible = true;
+		}
+	 })"
+	 @onfocusout="@(() => IsSendBtnVisible = false)">
 
-    <div class="icon">
-        @((MarkupString)GetDeviceIcon())
-    </div>
+	<div class="icon">
+		@((MarkupString)GetDeviceIcon())
+	</div>
 
-    <div class="info">
-        <div class="name">
-            @Device
-        </div>
-        <div class="ip">
-            @Device.IP
-        </div>
-    </div>
+	<div class="info">
+		<div class="name">
+			@Device
+		</div>
+		<div class="ip">
+			@Device.IP
+		</div>
+	</div>
 
-    @if (TransferService.ReceiverIp is not null
-    && TransferService.ReceiverIp.Equals(Device.IP))
-    {
-        <div class="cancel-btn" @onclick="TransferService.StopSending">
-            <i class="ph ph-x-circle"></i>
-        </div>
-    }
+	@if (TransferService.ReceiverIp is not null
+	&& TransferService.ReceiverIp.Equals(Device.IP))
+	{
+		<div class="cancel-btn" @onclick="TransferService.StopSending">
+			<i class="ph ph-x-circle"></i>
+		</div>
+	}
 
-    <div class="send-btn @sendBtnClass" @ref="ElementSendBtn"
-         @onclick="@(() => {
-            IsSendBtnVisible = false;
-            SendCallback.InvokeAsync(Device.IP);
-        })">
-        <i class="ph ph-arrow-fat-line-right"></i>
-    </div>
+	<div class="send-btn @sendBtnClass" @ref="ElementSendBtn"
+		 @onclick="@(() => {
+			IsSendBtnVisible = false;
+			SendCallback.InvokeAsync(Device.IP);
+		})">
+		<i class="ph ph-arrow-fat-line-right"></i>
+	</div>
 </div>
 
 @code {
-    [Parameter]
-    public LocalDeviceModel Device { get; set; } = null!;
+	[Parameter]
+	public LocalDeviceModel Device { get; set; } = null!;
 
-    [Parameter]
-    public EventCallback<IPAddress> SendCallback { get; set; }
+	[Parameter]
+	public EventCallback<IPAddress> SendCallback { get; set; }
 
-    ElementReference ElementDevice;
-    ElementReference ElementSendBtn;
+	ElementReference ElementDevice;
+	ElementReference ElementSendBtn;
 
-    IJSObjectReference jsModule = null!;
+	IJSObjectReference jsModule = null!;
 
-    public bool IsSendBtnVisible { get; set; }
+	public bool IsSendBtnVisible { get; set; }
 
-    // protected override async Task OnAfterRenderAsync(bool firstRender)
-    // {
-    //     if (firstRender)
-    //     {
-    //         jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/DeviceComponent.razor.js");
-    //         await jsModule.InvokeVoidAsync("Device.Init", ElementDevice, ElementSendBtn);
-    //     }
-    // }
+	// protected override async Task OnAfterRenderAsync(bool firstRender)
+	// {
+	//     if (firstRender)
+	//     {
+	//         jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/DeviceComponent.razor.js");
+	//         await jsModule.InvokeVoidAsync("Device.Init", ElementDevice, ElementSendBtn);
+	//     }
+	// }
 
-    private string GetDeviceIcon()
-    {
-        return Device?.Type switch
-        {
-            DeviceModelType.Desktop => "<i class=\"ph ph-desktop-tower\"></i>",
-            DeviceModelType.Laptop => "<i class=\"ph ph-laptop\"></i>",
-            DeviceModelType.Mobile => "<i class=\"ph ph-device-mobile\"></i>",
-            DeviceModelType.Tablet => "<i class=\"ph ph-device-tablet\"></i>",
-            _ => "<i class=\"ph ph-question\"></i>",
-        };
-    }
+	private string GetDeviceIcon()
+	{
+		return Device?.Type switch
+		{
+			DeviceModelType.Desktop => "<i class=\"ph ph-desktop-tower\"></i>",
+			DeviceModelType.Laptop => "<i class=\"ph ph-laptop\"></i>",
+			DeviceModelType.Mobile => "<i class=\"ph ph-device-mobile\"></i>",
+			DeviceModelType.Tablet => "<i class=\"ph ph-device-tablet\"></i>",
+			_ => "<i class=\"ph ph-question\"></i>",
+		};
+	}
 }

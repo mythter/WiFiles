@@ -1,7 +1,7 @@
 ﻿namespace Domain.Constants
 {
-    public static class DeviceConstants
-    {
-        public static readonly Guid Id = Guid.NewGuid();
-    }
+	public static class DeviceConstants
+	{
+		public static readonly Guid Id = Guid.NewGuid();
+	}
 }

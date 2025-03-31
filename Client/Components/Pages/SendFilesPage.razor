@@ -5,117 +5,117 @@
 @inject LocalTransferService TransferService
 
 <Header>
-    <RealButton OnClick="@PickFiles">
-        <i class="ph ph-plus"></i>
-    </RealButton>
-    @if (SelectedFiles.Count > 0)
-    {
-        <BadgeButton OnClick="@RemoveFiles" Count="SelectedFiles.Count">
-            <i class="ph ph-trash"></i>
-        </BadgeButton>
-    }
-    else if (StorageService.SendFiles.Count > 0)
-    {
-        <RealButton OnClick="@ClearFiles">
-            <i class="ph ph-broom"></i>
-        </RealButton>
-    }
-    <RealButton Class="transparent left" OnClick="NavigationService.NavigateBack">
-        <i class="ph ph-arrow-left"></i>
-    </RealButton>
+	<RealButton OnClick="@PickFiles">
+		<i class="ph ph-plus"></i>
+	</RealButton>
+	@if (SelectedFiles.Count > 0)
+	{
+		<BadgeButton OnClick="@RemoveFiles" Count="SelectedFiles.Count">
+			<i class="ph ph-trash"></i>
+		</BadgeButton>
+	}
+	else if (StorageService.SendFiles.Count > 0)
+	{
+		<RealButton OnClick="@ClearFiles">
+			<i class="ph ph-broom"></i>
+		</RealButton>
+	}
+	<RealButton Class="transparent left" OnClick="NavigationService.NavigateBack">
+		 <i class="ph ph-arrow-left"></i>
+	</RealButton>
 </Header>
 
 <div class="files">
-    @foreach (var file in StorageService.SendFiles.Select((f, i) => new { File = f, Index = i }))
-    {
-        <FileComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileComponent>
-    }
+	@foreach (var file in StorageService.SendFiles.Select((f, i) => new { File = f, Index = i }))
+	{
+		<FileComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileComponent>
+	}
 
-    @if (StorageService.SendFiles.Count == 0)
-    {
-        <div class="message">
-            @("Select files you want to send")
-        </div>
-    }
+	@if (StorageService.SendFiles.Count == 0)
+	{
+		<div class="message">
+			@("Select files you want to send")
+		</div>
+	}
 </div>
 
 @code {
-    [CascadingParameter(Name = "MessageBox")]
-    private MessageBox MessageBoxElement { get; set; }
+	[CascadingParameter(Name = "MessageBox")]
+	private MessageBox MessageBoxElement { get; set; }
 
-    private List<FileModel> SelectedFiles { get; set; } = new();
+	private List<FileModel> SelectedFiles { get; set; } = new();
 
-    // needed to reload animation after rerender
-    private string uniqueSuffix = Guid.NewGuid().ToString();
+	// needed to reload animation after rerender
+	private string uniqueSuffix = Guid.NewGuid().ToString();
 
-    private async Task PickFiles()
-    {
-        if (TransferService.ReceiverIp is not null)
-        {
-            MessageBoxElement.ShowWarning("You can't add files to list while sending in progress.");
-            return;
-        }
+	private async Task PickFiles()
+	{
+		if (TransferService.ReceiverIp is not null)
+		{
+			MessageBoxElement.ShowWarning("You can't add files to list while sending in progress.");
+			return;
+		}
 
-        StringBuilder notreadableFiles = new StringBuilder();
-        List<string> pickedFiles = await StorageService.PickFilesAsync();
-        foreach (var filePath in pickedFiles)
-        {
-            if (!StorageService.CheckIfFileReadable(filePath))
-            {
-                notreadableFiles.AppendLine(filePath);
-                continue;
-            }
+		StringBuilder notreadableFiles = new StringBuilder();
+		List<string> pickedFiles = await StorageService.PickFilesAsync();
+		foreach (var filePath in pickedFiles)
+		{
+			if (!StorageService.CheckIfFileReadable(filePath))
+			{
+				notreadableFiles.AppendLine(filePath);
+				continue;
+			}
 
-            if (!string.IsNullOrEmpty(filePath) &&
-                !StorageService.SendFiles.Any(f => f.Path == filePath))
-            {
-                long fileSize = new FileInfo(filePath).Length;
-                FileModel file = new FileModel(filePath, fileSize);
-                StorageService.SendFiles.Add(file);
-            }
-        }
+			if (!string.IsNullOrEmpty(filePath) &&
+				!StorageService.SendFiles.Any(f => f.Path == filePath))
+			{
+				long fileSize = new FileInfo(filePath).Length;
+				FileModel file = new FileModel(filePath, fileSize);
+				StorageService.SendFiles.Add(file);
+			}
+		}
 
-        if (notreadableFiles.Length > 0)
-        {
-            MessageBoxElement.ShowError(
-                "Some files you selected cannot be read and hence cannot be sent:\n" +
-                notreadableFiles.ToString(),
-                "Files cannot be read");
-            return;
-        }
-    }
+		if (notreadableFiles.Length > 0)
+		{
+			MessageBoxElement.ShowError(
+				"Some files you selected cannot be read and hence cannot be sent:\n" +
+				notreadableFiles.ToString(),
+				"Files cannot be read");
+			return;
+		}
+	}
 
-    private void RemoveFiles()
-    {
-        if (TransferService.ReceiverIp is not null)
-        {
-            MessageBoxElement.ShowWarning("You can't delete files from list while sending in progress.");
-            return;
-        }
+	private void RemoveFiles()
+	{
+		if (TransferService.ReceiverIp is not null)
+		{
+			MessageBoxElement.ShowWarning("You can't delete files from list while sending in progress.");
+			return;
+		}
 
-        foreach (FileModel f in SelectedFiles)
-        {
-            StorageService.SendFiles.Remove(f);
-        }
+		foreach (FileModel f in SelectedFiles)
+		{
+			StorageService.SendFiles.Remove(f);
+		}
 
-        SelectedFiles.Clear();
-        uniqueSuffix = Guid.NewGuid().ToString();
-    }
+		SelectedFiles.Clear();
+		uniqueSuffix = Guid.NewGuid().ToString();
+	}
 
-    private void ClearFiles()
-    {
-        StorageService.SendFiles.Clear();
-    }
+	private void ClearFiles()
+	{
+		StorageService.SendFiles.Clear();
+	}
 
-    private void OnFileClick(FileModel file)
-    {
-        if (SelectedFiles.Contains(file))
-        {
-            SelectedFiles.Remove(file);
-        }
-        else
-        {
-            SelectedFiles.Add(file);
-        }
-    }
+	private void OnFileClick(FileModel file)
+	{
+		if (SelectedFiles.Contains(file))
+		{
+			SelectedFiles.Remove(file);
+		}
+		else
+		{
+			SelectedFiles.Add(file);
+		}
+	}
 }

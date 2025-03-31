@@ -3,14 +3,14 @@ using Domain.Models;
 
 namespace Client.Interfaces
 {
-    public interface ILocalNetworkService
-    {
-        event EventHandler<LocalDeviceModel> DeviceFound;
+	public interface ILocalNetworkService
+	{
+		event EventHandler<LocalDeviceModel> DeviceFound;
 
-        Task StartMulticastScanAsync(IPAddress networkInterfaceAddress);
+		Task StartMulticastScanAsync(IPAddress networkInterfaceAddress);
 
-        Task StartMulticastListeningAsync();
+		Task StartMulticastListeningAsync();
 
-        void StopMulticastListening();
-    }
+		void StopMulticastListening();
+	}
 }

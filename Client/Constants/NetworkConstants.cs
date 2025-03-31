@@ -2,12 +2,12 @@
 
 namespace Client.Constants
 {
-    public static class NetworkConstants
-    {
-        public const int Port = 23969;
+	public static class NetworkConstants
+	{
+		public const int Port = 23969;
 
-        public static readonly IPAddress MulticastIP = new IPAddress([224, 0, 0, 171]);
+		public static readonly IPAddress MulticastIP = new IPAddress([224, 0, 0, 171]);
 
-        public const int MulticastScanResponseTimeout = 10_000; // timeout in milliseconds
-    }
+		public const int MulticastScanResponseTimeout = 10_000; // timeout in milliseconds
+	}
 }

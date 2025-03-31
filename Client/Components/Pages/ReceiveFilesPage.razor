@@ -8,108 +8,108 @@
 @implements IDisposable
 
 <Header>
-    <RealButton OnClick="@PickFolder">
-        <i class="ph ph-folder-notch"></i>
-    </RealButton>
-    @if (lts.IsReceiving || gts.IsReceiving)
-    {
-        <RealButton OnClick="@StopReceiving">
-            <i class="ph ph-x"></i>
-        </RealButton>
-    }
-    <RealButton Class="transparent left" OnClick="@NavigationService.NavigateBack">
-        <i class="ph ph-arrow-left"></i>
-    </RealButton>
+	<RealButton OnClick="@PickFolder">
+		<i class="ph ph-folder-notch"></i>
+	</RealButton>
+	@if (lts.IsReceiving || gts.IsReceiving)
+	{
+		<RealButton OnClick="@StopReceiving">
+			<i class="ph ph-x"></i>
+		</RealButton>
+	}
+	<RealButton Class="transparent left" OnClick="@NavigationService.NavigateBack">
+		<i class="ph ph-arrow-left"></i>
+	</RealButton>
 </Header>
 
 <div class="container">
-    <div class="folder" @ref=ElementFolderContainer>
-        <div class="folder-area" @ref=ElementFolder @onclick="@PickFolder">
-            @StorageService.SaveFolder
-        </div>
-    </div>
-    <div class="files">
-        @foreach (var file in StorageService.ReceiveFiles)
-        {
-            <FileComponent File="@file"></FileComponent>
-        }
+	<div class="folder" @ref=ElementFolderContainer>
+		<div class="folder-area" @ref=ElementFolder @onclick="@PickFolder">
+			@StorageService.SaveFolder
+		</div>
+	</div>
+	<div class="files">
+		@foreach (var file in StorageService.ReceiveFiles)
+		{
+			<FileComponent File="@file"></FileComponent>
+		}
 
-        @if (StorageService.ReceiveFiles.Count == 0)
-        {
-            <div class="message">
-                @("You haven't received any files yet")
-            </div>
-        }
-    </div>
+		@if (StorageService.ReceiveFiles.Count == 0)
+		{
+			<div class="message">
+				@("You haven't received any files yet")
+			</div>
+		}
+	</div>
 </div>
 
 @code {
-    [CascadingParameter(Name = "MessageBox")]
-    public MessageBox MessageBoxElement { get; set; }
+	[CascadingParameter(Name = "MessageBox")]
+	public MessageBox MessageBoxElement { get; set; }
 
-    IJSObjectReference jsModule = null!;
+	IJSObjectReference jsModule = null!;
 
-    ElementReference ElementFolderContainer;
-    ElementReference ElementFolder;
+	ElementReference ElementFolderContainer;
+	ElementReference ElementFolder;
 
-    protected override void OnInitialized()
-    {
-        lts.ReceivingStopped += OnReceivingStopped;
-    }
+	protected override void OnInitialized()
+	{
+		lts.ReceivingStopped += OnReceivingStopped;
+	}
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
-            await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementFolderContainer, ElementFolder);
-        }
-    }
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
+			await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementFolderContainer, ElementFolder);
+		}
+	}
 
-    private void StopReceiving()
-    {
-        if (lts.IsReceiving)
-        {
-            lts.StopReceiving();
-        }
+	private void StopReceiving()
+	{
+		if (lts.IsReceiving)
+		{
+			lts.StopReceiving();
+		}
 
-        if (gts.IsReceiving)
-        {
-            gts.StopReceiving();
-        }
-    }
+		if (gts.IsReceiving)
+		{
+			gts.StopReceiving();
+		}
+	}
 
-    private async Task PickFolder()
-    {
-        string? path = await StorageService.PickFolderAsync();
+	private async Task PickFolder()
+	{
+		string? path = await StorageService.PickFolderAsync();
 
-        if (path is null)
-        {
-            return;
-        }
+		if (path is null)
+		{
+			return;
+		}
 
-        if (!StorageService.CheckIfDirectoryWritable(path))
-        {
-            MessageBoxElement.ShowError(
-                "Saving to the selected folder is not currently supported. Please select another folder.",
-                "Destination folder not supported");
-            return;
-        }
+		if (!StorageService.CheckIfDirectoryWritable(path))
+		{
+			MessageBoxElement.ShowError(
+				"Saving to the selected folder is not currently supported. Please select another folder.",
+				"Destination folder not supported");
+			return;
+		}
 
-        if (StorageService.TrySetSaveFolder(path))
-        {
-            StateHasChanged();
-            await jsModule.InvokeVoidAsync("RunningTextAnimation.CheckAnimation", ElementFolder, ElementFolderContainer);
-        }
-    }
+		if (StorageService.TrySetSaveFolder(path))
+		{
+			StateHasChanged();
+			await jsModule.InvokeVoidAsync("RunningTextAnimation.CheckAnimation", ElementFolder, ElementFolderContainer);
+		}
+	}
 
-    private void OnReceivingStopped(object? sender, EventArgs e)
-    {
-        InvokeAsync(StateHasChanged);
-    }
+	private void OnReceivingStopped(object? sender, EventArgs e)
+	{
+		InvokeAsync(StateHasChanged);
+	}
 
-    public void Dispose()
-    {
-        lts.ReceivingStopped -= OnReceivingStopped;
-    }
+	public void Dispose()
+	{
+		lts.ReceivingStopped -= OnReceivingStopped;
+	}
 }

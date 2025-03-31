@@ -13,170 +13,170 @@
 @implements IDisposable
 
 <Header>
-    <BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
-    Count="StorageService.ReceiveFiles.Count">
-        <i class="ph ph-download-simple"></i>
-    </BadgeButton>
-    <BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
-    Count="StorageService.SendFiles.Count">
-        <i class="ph ph-upload-simple"></i>
-    </BadgeButton>
-    <RealButton Class="left" OnClick="@RefreshIps">
-        <i class="ph ph-arrows-clockwise"></i>
-    </RealButton>
-    <RealToggleButton IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
-        @if (Listening)
-        {
-            <i class="ph ph-ear"></i>
-        }
-        else
-        {
-            <i class="ph ph-ear-slash"></i>
-        }
-    </RealToggleButton>
+	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
+	Count="StorageService.ReceiveFiles.Count">
+		<i class="ph ph-download-simple"></i>
+	</BadgeButton>
+	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
+	Count="StorageService.SendFiles.Count">
+		<i class="ph ph-upload-simple"></i>
+	</BadgeButton>
+	<RealButton Class="left" OnClick="@RefreshIps">
+		<i class="ph ph-arrows-clockwise"></i>
+	</RealButton>
+	<RealToggleButton IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
+		@if (Listening)
+		{
+			<i class="ph ph-ear"></i>
+		}
+		else
+		{
+			<i class="ph ph-ear-slash"></i>
+		}
+	</RealToggleButton>
 </Header>
 
 <div class="main">
-    <div class="container">
-        <div class="top-panel">
-            <select class="select" @bind="SelectedIp" @bind:after="IpChanged">
-                @foreach (var ip in NetworkInterfaceIPs)
-                {
-                    <option value="@ip" selected="@(ip.ToString() == SelectedIp)">@ip.ToString()</option>
-                }
-            </select>
-        </div>
+	<div class="container">
+		<div class="top-panel">
+			<select class="select" @bind="SelectedIp" @bind:after="IpChanged">
+				@foreach (var ip in NetworkInterfaceIPs)
+				{
+					<option value="@ip" selected="@(ip.ToString() == SelectedIp)">@ip.ToString()</option>
+				}
+			</select>
+		</div>
 
-        <div class="devices">
-            <div class="devices-area">
-                @foreach (var device in Devices)
-                {
-                    <DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
-                }
-            </div>
-        </div>
+		<div class="devices">
+			<div class="devices-area">
+				@foreach (var device in Devices)
+				{
+					<DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
+				}
+			</div>
+		</div>
 
-        <div class="message">
-            @if (GettingNetworkInterfaces)
-            {
-                @("Getting info about network interfaces...")
-            }
-            else if (NetworkInterfaceIPs.Count == 0)
-            {
-                @("Could not find interfaces with default gateway")
-            }
-        </div>
+		<div class="message">
+			@if (GettingNetworkInterfaces)
+			{
+				@("Getting info about network interfaces...")
+			}
+			else if (NetworkInterfaceIPs.Count == 0)
+			{
+				@("Could not find interfaces with default gateway")
+			}
+		</div>
 
-    </div>
+	</div>
 </div>
 
 @code {
-    public List<IPAddress> NetworkInterfaceIPs { get; set; } = new();
+	public List<IPAddress> NetworkInterfaceIPs { get; set; } = new();
 
-    public List<IPAddress> Gateways { get; set; } = new();
+	public List<IPAddress> Gateways { get; set; } = new();
 
-    public List<IPAddress> LocalIPs { get; set; } = new();
+	public List<IPAddress> LocalIPs { get; set; } = new();
 
-    public List<LocalDeviceModel> Devices { get; set; } = new();
+	public List<LocalDeviceModel> Devices { get; set; } = new();
 
-    public string SelectedIp { get; set; } = null!;
+	public string SelectedIp { get; set; } = null!;
 
-    public bool Loading { get; set; }
+	public bool Loading { get; set; }
 
-    public bool Listening { get; set; }
+	public bool Listening { get; set; }
 
-    public bool GettingNetworkInterfaces { get; set; }
+	public bool GettingNetworkInterfaces { get; set; }
 
-    IJSObjectReference jsModule = null!;
+	IJSObjectReference jsModule = null!;
 
-    [CascadingParameter(Name = "MessageBox")]
-    private MessageBox MessageBoxElement { get; set; } = null!;
+	[CascadingParameter(Name = "MessageBox")]
+	private MessageBox MessageBoxElement { get; set; } = null!;
 
-    protected override async Task OnInitializedAsync()
-    {
-        Listening = TransferService.IsListening;
+	protected override async Task OnInitializedAsync()
+	{
+		Listening = TransferService.IsListening;
 
-        TransferService.ListeningStarted += ListeningStarted;
-        TransferService.ListeningStopped += ListeningStopped;
+		TransferService.ListeningStarted += ListeningStarted;
+		TransferService.ListeningStopped += ListeningStopped;
 
-        lns.DeviceFound += OnDeviceFound;
+		lns.DeviceFound += OnDeviceFound;
 
-        GettingNetworkInterfaces = true;
-        await Task.Run(() =>
-        {
-            NetworkInterfaceIPs = nis.GetNetworkInterfaceIPAddresses();
-            SelectedIp = NetworkInterfaceIPs.First().ToString();
-        });
-        GettingNetworkInterfaces = false;
-        StateHasChanged();
+		GettingNetworkInterfaces = true;
+		await Task.Run(() =>
+		{
+			NetworkInterfaceIPs = nis.GetNetworkInterfaceIPAddresses();
+			SelectedIp = NetworkInterfaceIPs.First().ToString();
+		});
+		GettingNetworkInterfaces = false;
+		StateHasChanged();
 
-        _ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
-    }
+		_ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
+	}
 
-    private void OnDeviceFound(object? sender, LocalDeviceModel device)
-    {
-        if (!Devices.Exists(d => d.IP is not null && d.IP.Equals(device.IP)))
-        {
-            Devices.Add(device);
-            StateHasChanged();
-        }
-    }
+	private void OnDeviceFound(object? sender, LocalDeviceModel device)
+	{
+		if (!Devices.Exists(d => d.IP is not null && d.IP.Equals(device.IP)))
+		{
+			Devices.Add(device);
+			StateHasChanged();
+		}
+	}
 
-    private async Task IpChanged()
-    {
-        IPAddress ip = IPAddress.Parse(SelectedIp);
-        await RefreshIps();
-    }
+	private async Task IpChanged()
+	{
+		IPAddress ip = IPAddress.Parse(SelectedIp);
+		await RefreshIps();
+	}
 
-    private async Task RefreshIps()
-    {
-        LocalIPs.Clear();
-        Devices.Clear();
-        await lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
-    }
+	private async Task RefreshIps()
+	{
+		LocalIPs.Clear();
+		Devices.Clear();
+		await lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
+	}
 
-    private async Task StartListening()
-    {
-        if (!StorageService.CheckIfDirectoryWritable(StorageService.SaveFolder))
-        {
-            MessageBoxElement.ShowError(
-                "Saving to the selected folder is not currently supported. Please select another folder.",
-                "Destination folder not supported");
-            return;
-        }
+	private async Task StartListening()
+	{
+		if (!StorageService.CheckIfDirectoryWritable(StorageService.SaveFolder))
+		{
+			MessageBoxElement.ShowError(
+				"Saving to the selected folder is not currently supported. Please select another folder.",
+				"Destination folder not supported");
+			return;
+		}
 
-        await TransferService.StartListeningAsync();
-    }
+		await TransferService.StartListeningAsync();
+	}
 
-    private async Task StopListening()
-    {
-        await TransferService.StopListeningAsync();
-    }
+	private async Task StopListening()
+	{
+		await TransferService.StopListeningAsync();
+	}
 
-    private async Task StartSending(IPAddress ip)
-    {
-        if (StorageService.SendFiles.Count == 0)
-        {
-            MessageBoxElement.ShowWarning("You have no files to send.");
-            return;
-        }
+	private async Task StartSending(IPAddress ip)
+	{
+		if (StorageService.SendFiles.Count == 0)
+		{
+			MessageBoxElement.ShowWarning("You have no files to send.");
+			return;
+		}
 
-        await TransferService.StartSendingAsync(ip, new List<FileModel>(StorageService.SendFiles));
-    }
+		await TransferService.StartSendingAsync(ip, new List<FileModel>(StorageService.SendFiles));
+	}
 
-    private void ListeningStarted(object? sender, EventArgs e)
-    {
-        Listening = true;
-    }
+	private void ListeningStarted(object? sender, EventArgs e)
+	{
+		Listening = true;
+	}
 
-    private void ListeningStopped(object? sender, EventArgs e)
-    {
-        Listening = false;
-    }
+	private void ListeningStopped(object? sender, EventArgs e)
+	{
+		Listening = false;
+	}
 
-    public void Dispose()
-    {
-        TransferService.ListeningStarted -= ListeningStarted;
-        TransferService.ListeningStopped -= ListeningStopped;
-    }
+	public void Dispose()
+	{
+		TransferService.ListeningStarted -= ListeningStarted;
+		TransferService.ListeningStopped -= ListeningStopped;
+	}
 }

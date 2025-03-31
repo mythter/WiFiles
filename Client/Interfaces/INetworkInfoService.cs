@@ -2,8 +2,8 @@
 
 namespace Client.Interfaces
 {
-    public interface INetworkInfoService
-    {
-        List<IPAddress> GetNetworkInterfaceIPAddresses();
-    }
+	public interface INetworkInfoService
+	{
+		List<IPAddress> GetNetworkInterfaceIPAddresses();
+	}
 }

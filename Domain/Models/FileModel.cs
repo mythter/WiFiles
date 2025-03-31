@@ -3,31 +3,31 @@ using Domain.Enums;
 
 namespace Domain.Models
 {
-    public class FileModel
-    {
-        public string Path { get; set; }
-        public long Size { get; set; }
-        public IPAddress? Sender { get; set; }
-        public TransferStatus Status { get; set; }
+	public class FileModel
+	{
+		public string Path { get; set; }
+		public long Size { get; set; }
+		public IPAddress? Sender { get; set; }
+		public TransferStatus Status { get; set; }
 
-        private long currentProgress;
-        public long CurrentProgress
-        {
-            get => currentProgress;
-            set
-            {
-                currentProgress = value;
-                ProgressChanged?.Invoke(this, currentProgress);
-            }
-        }
+		private long currentProgress;
+		public long CurrentProgress
+		{
+			get => currentProgress;
+			set
+			{
+				currentProgress = value;
+				ProgressChanged?.Invoke(this, currentProgress);
+			}
+		}
 
-        public event EventHandler<long>? ProgressChanged;
+		public event EventHandler<long>? ProgressChanged;
 
-        public FileModel(string path, long size, IPAddress? sender = null)
-        {
-            Path = path;
-            Size = size;
-            Sender = sender;
-        }
-    }
+		public FileModel(string path, long size, IPAddress? sender = null)
+		{
+			Path = path;
+			Size = size;
+			Sender = sender;
+		}
+	}
 }
