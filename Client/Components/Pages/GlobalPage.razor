@@ -87,11 +87,11 @@
 
     protected override async Task OnInitializedAsync()
     {
-        gts.Connected += OnConnected;
-        gts.Disconnected += OnDisconnected;
-        gts.SendingStarted += OnSendingStarted;
-        gts.SendingStopped += OnSendingStopped;
-        gts.SendingFinishedSuccessfully += SendingFinishedSuccessfully;
+        gts.Connected += UpdateState;
+        gts.Disconnected += UpdateState;
+        gts.SendingStarted += UpdateState;
+        gts.SendingStopped += UpdateState;
+        gts.SendingFinishedSuccessfully += UpdateState;
 
         if (gts.IsSending)
         {
@@ -105,27 +105,12 @@
         }
     }
 
-    private void SendingFinishedSuccessfully(object? sender, EventArgs e)
+    private void UpdateState(object? sender, EventArgs e)
     {
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnConnected(object? sender, long sessionId)
-    {
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnDisconnected(object? sender, EventArgs e)
-    {
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnSendingStarted(object? sender, EventArgs e)
-    {
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnSendingStopped(object? sender, EventArgs e)
+    private void UpdateState(object? sender, long e)
     {
         InvokeAsync(StateHasChanged);
     }
@@ -236,10 +221,10 @@
 
     public void Dispose()
     {
-        gts.Connected -= OnConnected;
-        gts.Disconnected -= OnDisconnected;
-        gts.SendingStarted -= OnSendingStarted;
-        gts.SendingStopped -= OnSendingStopped;
-        gts.SendingFinishedSuccessfully -= SendingFinishedSuccessfully;
+        gts.Connected -= UpdateState;
+        gts.Disconnected -= UpdateState;
+        gts.SendingStarted -= UpdateState;
+        gts.SendingStopped -= UpdateState;
+        gts.SendingFinishedSuccessfully -= UpdateState;
     }
 }
