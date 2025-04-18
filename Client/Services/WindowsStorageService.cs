@@ -1,23 +1,17 @@
-﻿using Client.Interfaces;
-using CommunityToolkit.Maui.Storage;
-using Domain.Models;
+﻿using CommunityToolkit.Maui.Storage;
 
 namespace Client.Services
 {
-	public class WindowsStorageService : IStorageService
+	public class WindowsStorageService : StorageServiceBase
 	{
-		public string SaveFolder { get; private set; }
-
-		public SynchronizedCollection<FileModel> SendFiles { get; } = new();
-
-		public SynchronizedCollection<FileModel> ReceiveFiles { get; } = new();
+		public override string SaveFolder { get; protected set; }
 
 		public WindowsStorageService()
 		{
 			SaveFolder = GetDefaultFolder();
 		}
 
-		public bool CheckIfDirectoryWritable(string dirPath, bool throwIfFails = false)
+		public override bool CheckIfDirectoryWritable(string dirPath, bool throwIfFails = false)
 		{
 			try
 			{
@@ -34,23 +28,7 @@ namespace Client.Services
 			}
 		}
 
-		public bool CheckIfFileReadable(string filePath, bool throwIfFails = false)
-		{
-			try
-			{
-				using FileStream fs = File.Open(filePath, FileMode.Open, FileAccess.Read);
-				return true;
-			}
-			catch
-			{
-				if (throwIfFails)
-					throw;
-				else
-					return false;
-			}
-		}
-
-		public string GetDefaultFolder()
+		public override string GetDefaultFolder()
 		{
 			string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
 			if (Directory.Exists(path))
@@ -63,7 +41,7 @@ namespace Client.Services
 			}
 		}
 
-		public bool TrySetSaveFolder(string path)
+		public override bool TrySetSaveFolder(string path)
 		{
 			if (Directory.Exists(path))
 			{
@@ -74,7 +52,7 @@ namespace Client.Services
 			return false;
 		}
 
-		public async Task<List<string>> PickFilesAsync()
+		public override async Task<List<string>> PickFilesAsync()
 		{
 			var result = await FilePicker.PickMultipleAsync();
 			return result
@@ -82,7 +60,7 @@ namespace Client.Services
 				.ToList();
 		}
 
-		public async Task<string?> PickFolderAsync()
+		public override async Task<string?> PickFolderAsync()
 		{
 			var result = await FolderPicker.PickAsync(default);
 			return result?.Folder?.Path;

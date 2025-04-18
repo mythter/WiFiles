@@ -1,23 +1,17 @@
 ﻿#if ANDROID
-using Client.Interfaces;
-using Domain.Models;
 
 namespace Client.Services
 {
-	public class AndroidStorageService : IStorageService
+	public class AndroidStorageService : StorageServiceBase
 	{
-		public string SaveFolder { get; private set; }
-
-		public SynchronizedCollection<FileModel> SendFiles { get; } = new();
-
-		public SynchronizedCollection<FileModel> ReceiveFiles { get; } = new();
+		public override string SaveFolder { get; protected set; }
 
 		public AndroidStorageService()
 		{
 			SaveFolder = GetDefaultFolder();
 		}
 
-		public bool CheckIfDirectoryWritable(string dirPath, bool throwIfFails = false)
+		public override bool CheckIfDirectoryWritable(string dirPath, bool throwIfFails = false)
 		{
 			try
 			{
@@ -34,23 +28,7 @@ namespace Client.Services
 			}
 		}
 
-		public bool CheckIfFileReadable(string filePath, bool throwIfFails = false)
-		{
-			try
-			{
-				using FileStream fs = File.Open(filePath, FileMode.Open, FileAccess.Read);
-				return true;
-			}
-			catch
-			{
-				if (throwIfFails)
-					throw;
-				else
-					return false;
-			}
-		}
-
-		public string GetDefaultFolder()
+		public override string GetDefaultFolder()
 		{
 			string extStorDir = Android.OS.Environment.ExternalStorageDirectory?.AbsolutePath
 				?? throw new NotSupportedException("Unable to get ExternalStorageDirectory absolute path");
@@ -65,7 +43,7 @@ namespace Client.Services
 			}
 		}
 
-		public bool TrySetSaveFolder(string path)
+		public override bool TrySetSaveFolder(string path)
 		{
 			Java.IO.File folder = new Java.IO.File(path);
 			if (folder.Exists())
@@ -77,12 +55,12 @@ namespace Client.Services
 			return false;
 		}
 
-		public async Task<List<string>> PickFilesAsync()
+		public override async Task<List<string>> PickFilesAsync()
 		{
 			return await MainActivity.PickFilesAsync();
 		}
 
-		public async Task<string?> PickFolderAsync()
+		public override async Task<string?> PickFolderAsync()
 		{
 			return await MainActivity.PickFolderAsync();
 		}
