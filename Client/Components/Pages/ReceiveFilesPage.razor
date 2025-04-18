@@ -146,7 +146,7 @@
 		if (removeAll)
 		{
 			StorageService.ReceiveFiles.Clear();
-			await localStorage.RemoveItemAsync(LocalStorageConstants.SendFilesKey);
+			await localStorage.RemoveItemAsync(LocalStorageConstants.ReceiveFilesKey);
 		}
 		else
 		{
@@ -155,7 +155,7 @@
 				StorageService.ReceiveFiles.Remove(f);
 			}
 
-			await localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.SendFilesKey, StorageService.SendFiles);
+			await localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.ReceiveFilesKey, StorageService.ReceiveFiles);
 		}
 
 		SelectedFiles.Clear();
