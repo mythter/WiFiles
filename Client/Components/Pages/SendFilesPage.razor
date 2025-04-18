@@ -1,6 +1,9 @@
 ﻿@page "/sendfiles"
 @using System.Text
+@using Blazored.LocalStorage
+@using Client.Constants
 @inject NavigationService NavigationService
+@inject ILocalStorageService localStorage
 @inject IStorageService StorageService
 @inject LocalTransferService TransferService
 
@@ -10,13 +13,13 @@
 	</RealButton>
 	@if (SelectedFiles.Count > 0)
 	{
-		<BadgeButton OnClick="@RemoveFiles" Count="SelectedFiles.Count">
+		<BadgeButton OnClick="@(async () => await RemoveFiles())" Count="SelectedFiles.Count">
 			<i class="ph ph-trash"></i>
 		</BadgeButton>
 	}
 	else if (StorageService.SendFiles.Count > 0)
 	{
-		<RealButton OnClick="@ClearFiles">
+		<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
 			<i class="ph ph-broom"></i>
 		</RealButton>
 	}
@@ -56,13 +59,13 @@
 			return;
 		}
 
-		StringBuilder notreadableFiles = new StringBuilder();
+		StringBuilder notReadableFiles = new StringBuilder();
 		List<string> pickedFiles = await StorageService.PickFilesAsync();
 		foreach (var filePath in pickedFiles)
 		{
 			if (!StorageService.CheckIfFileReadable(filePath))
 			{
-				notreadableFiles.AppendLine(filePath);
+				notReadableFiles.AppendLine(filePath);
 				continue;
 			}
 
@@ -75,17 +78,19 @@
 			}
 		}
 
-		if (notreadableFiles.Length > 0)
+		await localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.SendFilesKey, StorageService.SendFiles);
+
+		if (notReadableFiles.Length > 0)
 		{
 			MessageBoxElement.ShowError(
 				"Some files you selected cannot be read and hence cannot be sent:\n" +
-				notreadableFiles.ToString(),
+				notReadableFiles.ToString(),
 				"Files cannot be read");
 			return;
 		}
 	}
 
-	private void RemoveFiles()
+	private async Task RemoveFiles(bool removeAll = false)
 	{
 		if (TransferService.ReceiverIp is not null)
 		{
@@ -93,18 +98,23 @@
 			return;
 		}
 
-		foreach (FileModel f in SelectedFiles)
+		if (removeAll)
 		{
-			StorageService.SendFiles.Remove(f);
+			StorageService.SendFiles.Clear();
+			await localStorage.RemoveItemAsync(LocalStorageConstants.SendFilesKey);
+		}
+		else
+		{
+			foreach (FileModel f in SelectedFiles)
+			{
+				StorageService.SendFiles.Remove(f);
+			}
+
+			await localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.SendFilesKey, StorageService.SendFiles);
 		}
 
 		SelectedFiles.Clear();
 		uniqueSuffix = Guid.NewGuid().ToString();
-	}
-
-	private void ClearFiles()
-	{
-		StorageService.SendFiles.Clear();
 	}
 
 	private void OnFileClick(FileModel file)
