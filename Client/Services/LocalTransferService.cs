@@ -34,6 +34,7 @@ namespace Client.Services
 		public event EventHandler? ReceivingStopped;
 		public event EventHandler? ReceivingFinishedSuccessfully;
 
+		public event EventHandler? SendingStopped;
 		public event EventHandler? SendingFinishedSuccessfully;
 
 		public event EventHandler? ListeningStarted;
@@ -114,6 +115,7 @@ namespace Client.Services
 				ClientTokenSource = null;
 
 				ReceiverIp = null;
+				SendingStopped?.Invoke(this, EventArgs.Empty);
 			}
 		}
 
