@@ -16,7 +16,7 @@ namespace Client.Services
 		private readonly IDeviceService _deviceService;
 		private readonly IStorageService _storageService;
 
-		private bool disposed;
+		private bool _disposed;
 
 		private TcpListener TcpListener { get; set; }
 
@@ -369,7 +369,7 @@ namespace Client.Services
 
 		protected virtual void Dispose(bool disposing)
 		{
-			if (!disposed)
+			if (!_disposed)
 			{
 				if (disposing)
 				{
@@ -380,7 +380,7 @@ namespace Client.Services
 					ReceivingTokenSource?.Dispose();
 				}
 
-				disposed = true;
+				_disposed = true;
 			}
 		}
 

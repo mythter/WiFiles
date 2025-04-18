@@ -10,7 +10,7 @@ namespace Client.Services
 	{
 		public List<IPAddress> GetNetworkInterfaceIPAddresses()
 		{
-			List<IPAddress> result = new List<IPAddress>();
+			List<IPAddress> result = [];
 			var networkInterfaces = Collections.List(NetworkInterface.NetworkInterfaces!);
 
 			foreach (NetworkInterface inter in networkInterfaces)
