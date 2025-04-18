@@ -1,15 +1,15 @@
 ﻿@inject IJSRuntime js
 
 <input class="@Class"
-	   @ref=InputElement
-	   disabled="@IsDisabled"
-	   value="@Text" 
-	   placeholder="@Placeholder"
-	   type="text"
-		maxlength="@MaxLength"
-	   minlength="@MinLength"
-	   @oninput="OnTextInput" 
-	   style="@($"border-radius: {CornerRadius}px; text-align: {TextAlign}; font-size: {FontSize}; -webkit-font-feature-settings: {IsMonoValue}; font-feature-settings: {IsMonoValue};")" />
+@ref=InputElement
+disabled="@IsDisabled"
+value="@Text" 
+placeholder="@Placeholder"
+type="text"
+maxlength="@MaxLength"
+minlength="@MinLength"
+@oninput=OnTextInput
+style="@($"border-radius: {CornerRadius}px; text-align: {TextAlign}; font-size: {FontSize}; -webkit-font-feature-settings: {IsMonoValue}; font-feature-settings: {IsMonoValue};")" />
 
 @code {
 	IJSObjectReference jsModule = null!;
@@ -43,7 +43,7 @@
 	public string? FontSize { get; set; }
 
 	[Parameter]
-	public int MaxLength { get; set; }
+	public int MaxLength { get; set; } = -1;
 
 	[Parameter]
 	public int MinLength { get; set; }
@@ -64,7 +64,7 @@
 	{
 		if (firstRender && Pattern is not null)
 		{
-			jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/Input.razor.js");
+			jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./_content/UIComponents/Components/Input.razor.js");
 			await jsModule.InvokeVoidAsync("Input.InitPattern", InputElement, Pattern);
 		}
 	}

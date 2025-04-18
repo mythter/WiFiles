@@ -1,0 +1,9 @@
+﻿input {
+	border: 0;
+	width: 100%;
+	padding: 0 8px;
+}
+
+	input:disabled {
+		background-color: rgba(255, 255, 255, 0.5);
+	}

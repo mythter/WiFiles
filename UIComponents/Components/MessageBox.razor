@@ -65,7 +65,7 @@
 	{
 		if (firstRender)
 		{
-			jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/MessageBox.razor.js");
+			jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./_content/UIComponents/Components/MessageBox.razor.js");
 			await jsModule.InvokeVoidAsync("MessageBox.Init", DotNetObjectReference.Create(this), ElementContainer);
 		}
 	}

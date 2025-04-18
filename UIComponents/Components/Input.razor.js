@@ -2,7 +2,6 @@
 
     static InitPattern(input, pattern) {
         input.oninput = (e) => {
-            console.log("input");
             let cursorPos = e.target.selectionStart
             let currentValue = e.target.value
             let cleanValue = currentValue.replace(/\D/g, "");
