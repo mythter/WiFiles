@@ -1,9 +1,12 @@
 ﻿@page "/receivefiles"
 @using System.Net
+@using Blazored.LocalStorage
+@using Client.Constants
 @inject NavigationService NavigationService
 @inject LocalTransferService lts
 @inject GlobalTransferService gts
 @inject IStorageService StorageService
+@inject ILocalStorageService localStorage
 @inject IJSRuntime js
 @implements IDisposable
 
@@ -11,6 +14,18 @@
 	<RealButton OnClick="@PickFolder">
 		<i class="ph ph-folder-notch"></i>
 	</RealButton>
+	@if (SelectedFiles.Count > 0)
+	{
+		<BadgeButton OnClick="@(async () => await RemoveFiles())" Count="SelectedFiles.Count">
+			<i class="ph ph-trash"></i>
+		</BadgeButton>
+	}
+	else if (StorageService.ReceiveFiles.Count > 0)
+	{
+		<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
+			<i class="ph ph-broom"></i>
+		</RealButton>
+	}
 	@if (lts.IsReceiving || gts.IsReceiving)
 	{
 		<RealButton OnClick="@StopReceiving">
@@ -29,9 +44,9 @@
 		</div>
 	</div>
 	<div class="files">
-		@foreach (var file in StorageService.ReceiveFiles)
+		@foreach (var file in StorageService.ReceiveFiles.Select((f, i) => new { File = f, Index = i }))
 		{
-			<FileComponent File="@file"></FileComponent>
+			<FileComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileComponent>
 		}
 
 		@if (StorageService.ReceiveFiles.Count == 0)
@@ -46,6 +61,11 @@
 @code {
 	[CascadingParameter(Name = "MessageBox")]
 	public MessageBox MessageBoxElement { get; set; } = null!;
+
+	private List<FileModel> SelectedFiles { get; set; } = new();
+
+	// needed to reload animation after rerender
+	private string uniqueSuffix = Guid.NewGuid().ToString();
 
 	IJSObjectReference jsModule = null!;
 
@@ -105,11 +125,52 @@
 
 	private void OnReceivingStopped(object? sender, EventArgs e)
 	{
+		SelectedFiles.RemoveAll(f => !StorageService.ReceiveFiles.Contains(f));
+
 		InvokeAsync(StateHasChanged);
 	}
 
 	public void Dispose()
 	{
 		lts.ReceivingStopped -= OnReceivingStopped;
+	}
+
+	private async Task RemoveFiles(bool removeAll = false)
+	{
+		if (lts.IsReceiving)
+		{
+			MessageBoxElement.ShowWarning("Please wait until the receiving is complete.");
+			return;
+		}
+
+		if (removeAll)
+		{
+			StorageService.ReceiveFiles.Clear();
+			await localStorage.RemoveItemAsync(LocalStorageConstants.SendFilesKey);
+		}
+		else
+		{
+			foreach (FileModel f in SelectedFiles)
+			{
+				StorageService.ReceiveFiles.Remove(f);
+			}
+
+			await localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.SendFilesKey, StorageService.SendFiles);
+		}
+
+		SelectedFiles.Clear();
+		uniqueSuffix = Guid.NewGuid().ToString();
+	}
+
+	private void OnFileClick(FileModel file)
+	{
+		if (SelectedFiles.Contains(file))
+		{
+			SelectedFiles.Remove(file);
+		}
+		else
+		{
+			SelectedFiles.Add(file);
+		}
 	}
 }

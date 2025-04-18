@@ -1,9 +1,12 @@
 ﻿@using System.Net
+@using Blazored.LocalStorage
+@using Client.Constants
 @inherits LayoutComponentBase
 @inject NavigationService NavigationService
 @inject NavigationManager NavigationManager
 @inject ILocalNetworkService lns
 @inject IStorageService StorageService
+@inject ILocalStorageService localStorage
 @inject LocalTransferService LocalTransferService
 @inject GlobalTransferService GlobalTransferService
 
@@ -14,7 +17,7 @@
 		</main>
 
 		@if (NavigationManager.Uri.Contains("/local") ||
-		NavigationManager.Uri.Contains("/global"))
+										NavigationManager.Uri.Contains("/global"))
 		{
 			<div class="menu">
 				<div class="nav">
@@ -45,7 +48,7 @@
 
 	private MessageBox MessageBoxElement = null!;
 
-	protected override void OnInitialized()
+	protected override async Task OnInitializedAsync()
 	{
 		#region Local transfer settings
 
@@ -82,8 +85,22 @@
 
 		#endregion
 
+		await InitFromLocalStorage();
+
 		NavigationService.NavigateTo("local");
 		// NavigationService.NavigateTo("global");
+	}
+
+	private async Task InitFromLocalStorage()
+	{
+		if (await localStorage.GetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.SendFilesKey) is { } sendFiles)
+		{
+			StorageService.SendFiles = sendFiles;
+		}
+		if (await localStorage.GetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.ReceiveFilesKey) is { } receiveFiles)
+		{
+			StorageService.ReceiveFiles = receiveFiles;
+		}
 	}
 
 	private Task<bool> ShowRequest(RequestModel request)
@@ -142,6 +159,7 @@
 	private void AddReceivingFile(object? sender, FileModel file)
 	{
 		StorageService.ReceiveFiles.Add(file);
+		localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.ReceiveFilesKey, StorageService.ReceiveFiles);
 		InvokeAsync(StateHasChanged);
 	}
 
@@ -155,6 +173,7 @@
 				break;
 			}
 		}
+		localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.ReceiveFilesKey, StorageService.ReceiveFiles);
 		InvokeAsync(StateHasChanged);
 	}
 }
