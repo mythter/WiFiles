@@ -1,7 +1,10 @@
 ﻿@page "/"
-
+@inject NavigationService NavigationService
 
 
 @code{
-
+	protected override void OnInitialized()
+	{
+		NavigationService.NavigateTo("local");
+	}
 }

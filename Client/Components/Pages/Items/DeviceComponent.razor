@@ -1,21 +1,22 @@
 ﻿@using System.Net
 @using Domain.Enums
 @inject IJSRuntime js
-@inject LocalTransferService TransferService
+@inject LocalTransferService lts
+@implements IDisposable
 
 @{
 	var sendBtnClass = IsSendBtnVisible ? "" : "hidden";
 }
 
 
-<div class="device" @ref="ElementDevice" tabindex="0"
-	 @onclick="@(() => {
-		if(TransferService.ReceiverIp is null /*|| !TransferService.ReceiverIp.Equals(Ip)*/)
+<div class="device" tabindex="0"
+@onclick="@(() => {
+		if(lts.ReceiverIp is null /*|| !TransferService.ReceiverIp.Equals(Ip)*/)
 		{
 			IsSendBtnVisible = true;
 		}
 	 })"
-	 @onfocusout="@(() => IsSendBtnVisible = false)">
+@onfocusout="@(() => IsSendBtnVisible = false)">
 
 	<div class="icon">
 		@((MarkupString)GetDeviceIcon())
@@ -30,16 +31,15 @@
 		</div>
 	</div>
 
-	@if (TransferService.ReceiverIp is not null
-	&& TransferService.ReceiverIp.Equals(Device.IP))
+	@if (lts.ReceiverIp?.Equals(Device.IP) ?? false)
 	{
-		<div class="cancel-btn" @onclick="TransferService.StopSending">
+		<div class="cancel-btn" @onclick="lts.StopSending">
 			<i class="ph ph-x-circle"></i>
 		</div>
 	}
 
-	<div class="send-btn @sendBtnClass" @ref="ElementSendBtn"
-		 @onclick="@(() => {
+	<div class="send-btn @sendBtnClass"
+		@onclick="@(() => {
 			IsSendBtnVisible = false;
 			SendCallback.InvokeAsync(Device.IP);
 		})">
@@ -54,21 +54,18 @@
 	[Parameter]
 	public EventCallback<IPAddress> SendCallback { get; set; }
 
-	ElementReference ElementDevice;
-	ElementReference ElementSendBtn;
-
-	IJSObjectReference jsModule = null!;
-
 	public bool IsSendBtnVisible { get; set; }
 
-	// protected override async Task OnAfterRenderAsync(bool firstRender)
-	// {
-	//     if (firstRender)
-	//     {
-	//         jsModule = await js.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Items/DeviceComponent.razor.js");
-	//         await jsModule.InvokeVoidAsync("Device.Init", ElementDevice, ElementSendBtn);
-	//     }
-	// }
+	protected override void OnInitialized()
+	{
+		lts.SendingStopped += OnSendingStopped;
+	}
+
+	private void OnSendingStopped(object? sender, EventArgs eventArgs)
+	{
+		IsSendBtnVisible = false;
+		InvokeAsync(StateHasChanged);
+	}
 
 	private string GetDeviceIcon()
 	{
@@ -80,5 +77,10 @@
 			DeviceModelType.Tablet => "<i class=\"ph ph-device-tablet\"></i>",
 			_ => "<i class=\"ph ph-question\"></i>",
 		};
+	}
+
+	public void Dispose()
+	{
+		lts.SendingStopped -= OnSendingStopped;
 	}
 }
