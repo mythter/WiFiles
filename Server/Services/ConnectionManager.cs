@@ -68,7 +68,7 @@ namespace Server.Services
 
 		private long GenerateSessionId()
 		{
-			return _random.NextInt64(10_000_000_000, 99_999_999_999);
+			return _random.NextInt64(10_000_000_000, 100_000_000_000);
 		}
 	}
 }
