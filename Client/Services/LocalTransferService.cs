@@ -328,6 +328,21 @@ namespace Client.Services
 			{
 				ExceptionHandled?.Invoke(this, "Receiving cancelled due to timeout.");
 			}
+			catch (IOException ex) when (ex.InnerException is SocketException sex)
+			{
+				string message = ex.Message;
+
+				if (sex.SocketErrorCode == SocketError.ConnectionReset)
+				{
+					message = "It seems the receiver was disconnected.";
+				}
+				else if (sex.SocketErrorCode == SocketError.ConnectionAborted)
+				{
+					message = "Connection lost.";
+				}
+
+				ExceptionHandled?.Invoke(this, message);
+			}
 			catch (OperationCanceledException ex)
 			{
 				// if operation cancelled not by user show error message
