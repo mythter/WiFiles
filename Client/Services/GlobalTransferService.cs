@@ -176,7 +176,9 @@ namespace Client.Services
 					.Select(f => new FileMetadata(Path.GetFileName(f.Path), f.Size))
 					.ToList();
 
-				var sendRequest = new GlobalRequestModel(SessionId, filesMetadata);
+				var deviceModel = new GlobalDeviceModel(_deviceService.GetCurrentDeviceInfo());
+
+				var sendRequest = new GlobalRequestModel(SessionId, deviceModel, filesMetadata);
 				await _connection.InvokeAsync(ServerConstants.FileHub.SendRequest, receiverSessionId, sendRequest, cancellationToken);
 			}
 			catch (Exception ex)
