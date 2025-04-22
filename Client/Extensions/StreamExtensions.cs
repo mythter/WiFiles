@@ -1,12 +1,11 @@
-﻿using System.Net.Sockets;
-using System.Text;
+﻿using System.Text;
 
 namespace Client.Extensions
 {
-	public static class NetworkStreamExtensions
+	public static class StreamExtensions
 	{
 		public static async Task<int> ReadWithTimeoutAsync(
-			this NetworkStream stream,
+			this Stream stream,
 			byte[] buffer,
 			int timeout,
 			CancellationToken cancellationToken)
@@ -30,7 +29,7 @@ namespace Client.Extensions
 		}
 
 		public static async Task WriteWithTimeoutAsync(
-			this NetworkStream stream,
+			this Stream stream,
 			byte[] buffer,
 			int timeout,
 			CancellationToken cancellationToken)
@@ -54,7 +53,7 @@ namespace Client.Extensions
 		}
 
 		public static async Task<T> ReadAsync<T>(
-			this NetworkStream stream,
+			this Stream stream,
 			Func<byte[], T> converter,
 			int size,
 			CancellationToken cancellationToken = default)
@@ -65,7 +64,7 @@ namespace Client.Extensions
 		}
 
 		public static async Task<bool> ReadBooleanAsync(
-			this NetworkStream stream,
+			this Stream stream,
 			CancellationToken cancellationToken = default)
 		{
 			return await stream.ReadAsync(
@@ -75,7 +74,7 @@ namespace Client.Extensions
 		}
 
 		public static async Task<int> ReadInt32Async(
-			this NetworkStream stream,
+			this Stream stream,
 			CancellationToken cancellationToken = default)
 		{
 			return await stream.ReadAsync(
@@ -85,7 +84,7 @@ namespace Client.Extensions
 		}
 
 		public static async Task<string> ReadStringAsync(
-			this NetworkStream stream,
+			this Stream stream,
 			int size,
 			CancellationToken cancellationToken = default)
 		{
@@ -93,7 +92,7 @@ namespace Client.Extensions
 		}
 
 		public static async Task WriteBooleanAsync(
-			this NetworkStream stream,
+			this Stream stream,
 			bool value,
 			CancellationToken cancellationToken = default)
 		{
