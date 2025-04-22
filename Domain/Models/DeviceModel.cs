@@ -29,5 +29,15 @@ namespace Domain.Models
 			Manufacturer = manufacturer;
 			Type = type;
 		}
+
+		public override string ToString()
+		{
+			return Type switch
+			{
+				DeviceModelType.Desktop or
+				DeviceModelType.Laptop => Model ?? Name,
+				_ => Name
+			};
+		}
 	}
 }
