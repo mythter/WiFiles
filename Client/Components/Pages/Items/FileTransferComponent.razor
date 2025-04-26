@@ -1,0 +1,118 @@
+﻿@using Client.Helpers
+@using Domain.Enums
+@inject IJSRuntime js
+@implements IDisposable
+
+@{
+	string isSelected = IsSelected ? "selected" : "";
+}
+
+<div class="file @isSelected" @onclick="OnClickHandler">
+	<div class="icon">
+		@((MarkupString)FileHelper.GetPhosphorFileIcon(File.Path))
+		@if (!string.IsNullOrEmpty(Status))
+		{
+			<div class="status"> @Status </div>
+		}
+		else if (File.Status == TransferStatus.InProgress)
+		{
+			<div class="progress"> @($"{Progress}%") </div>
+		}
+	</div>
+	<div class="info" @ref=ElementInfo>
+		<div class="file-name" @ref=ElementName>
+			@Path.GetFileName(File.Path)
+		</div>
+		<div class="file-path" @ref=ElementPath>
+			@Path.GetDirectoryName(File.Path)
+		</div>
+	</div>
+</div>
+
+@code {
+	[Parameter]
+	public FileTransferModel File { get; set; } = null!;
+
+	[Parameter]
+	public EventCallback<FileTransferModel> OnClick { get; set; }
+
+	public bool IsSelected { get; set; }
+
+	public int Progress { get; set; }
+
+	public string? Status { get; set; }
+
+	IJSObjectReference jsModule = null!;
+
+	ElementReference ElementName;
+	ElementReference ElementPath;
+	ElementReference ElementInfo;
+
+	protected override void OnInitialized()
+	{
+		File.ProgressChanged += OnProgressChanged;
+
+		switch (File.Status)
+		{
+			case TransferStatus.InProgress:
+				Progress = CalculateProgressPercent(File.CurrentProgress);
+				break;
+			case TransferStatus.Finished:
+				Progress = 100;
+				Status = "Finished";
+				break;
+			case TransferStatus.Failed:
+				Progress = -1;
+				Status = "Error";
+				break;
+		}
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
+			await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementInfo, ElementName);
+			await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementInfo, ElementPath);
+		}
+	}
+
+	private void OnProgressChanged(object? sender, long progress)
+	{
+		int percent = CalculateProgressPercent(progress);
+
+		if (Progress != percent)
+		{
+			if (File.CurrentProgress == File.Size)
+			{
+				Progress = 100;
+				Status = "Finished";
+			}
+			else
+			{
+				Progress = percent;
+			}
+			InvokeAsync(StateHasChanged);
+		}
+	}
+
+	private int CalculateProgressPercent(long progress)
+	{
+		return (int)(progress * 100 / File.Size);
+	}
+
+	private async Task OnClickHandler()
+	{
+		if (OnClick.HasDelegate)
+		{
+			IsSelected = !IsSelected;
+			await OnClick.InvokeAsync(File);
+		}
+	}
+
+	public void Dispose()
+	{
+		File.ProgressChanged -= OnProgressChanged;
+	}
+}
