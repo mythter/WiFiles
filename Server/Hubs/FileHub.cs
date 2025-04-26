@@ -23,13 +23,13 @@ namespace Server.Hubs
 		}
 		}
 
-		public async Task SendResponse(long whomSessionId, bool accepted)
+		public async Task SendResponse(long whomSessionId, GlobalResponseModel response)
 		{
 			if (connectionManager.GetBySessionId(whomSessionId) is string whomConnectionId)
 			{
-				LogResponse(accepted, whomConnectionId, whomSessionId);
+				LogResponse(response.IsAccepted, whomConnectionId, whomSessionId);
 
-				if (accepted)
+				if (response.IsAccepted)
 				{
 					await sessionManager.TryAddAsync(whomConnectionId, Context.ConnectionId);
 					logger.LogInformation(
@@ -37,7 +37,7 @@ namespace Server.Hubs
 						whomConnectionId, Context.ConnectionId);
 				}
 
-				await Clients.Client(whomConnectionId).SendAsync(ServerConstants.FileHub.ReceiveResponse, accepted);
+				await Clients.Client(whomConnectionId).SendAsync(ServerConstants.FileHub.ReceiveResponse, response);
 			}
 		}
 		public async Task StartSendingFile(long whomSessionId, FileMetadata file, Guid fileId, bool isLast)
