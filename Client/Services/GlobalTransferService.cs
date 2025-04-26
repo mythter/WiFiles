@@ -330,7 +330,6 @@ namespace Client.Services
 					SendingFileFailed?.Invoke(this, fileData.File.Path);
 					throw;
 				}
-
 			}
 
 			SendingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
@@ -339,7 +338,7 @@ namespace Client.Services
 		private async Task SendFileAsync(FileTransferModel file, Guid fileId, CancellationToken cancellationToken = default)
 		{
 			var tcs = new TaskCompletionSource();
-			IAsyncEnumerable<byte[]> fileStream = GenerateFileStream(file, tcs.SetResult, cancellationToken);
+			IAsyncEnumerable<byte[]> fileStream = GenerateFileStream(file, tcs.SetResult, tcs.SetException, tcs.SetCanceled, cancellationToken);
 
 			await _connection.SendAsync(ServerConstants.FileHub.SendFile, ReceiverId, fileStream, fileId);
 			await tcs.Task;
@@ -390,30 +389,69 @@ namespace Client.Services
 				: throw new TransferException($"The {Path.GetFileName(file.Path)} file data was not received completely");
 		}
 
-		private static async IAsyncEnumerable<byte[]> GenerateFileStream(FileTransferModel file, Action? fileSentCallback, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+		private static async IAsyncEnumerable<byte[]> GenerateFileStream(
+			FileTransferModel file,
+			Action? successCallback,
+			Action<Exception>? failCallback,
+			Action? cancelCallback,
+			[EnumeratorCancellation] CancellationToken cancellationToken = default)
 		{
+			FileStream? fs = null;
+			try
+			{
+				fs = new(file.Path, FileMode.Open, FileAccess.Read);
+			}
+			catch (Exception ex)
+			{
+				if (fs is not null)
+				{
+					await fs.DisposeAsync();
+				}
+
+				failCallback?.Invoke(ex);
+				throw;
+			}
+
 			int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
-			using FileStream fs = new(file.Path, FileMode.Open, FileAccess.Read);
 			long size = fs.Length < bufferSize ? fs.Length : bufferSize;
 			byte[] buffer = new byte[size];
-			int bytesRead;
-			while ((bytesRead = await fs.ReadAsync(buffer, CancellationToken.None)) > 0)
-			{
-				cancellationToken.ThrowIfCancellationRequested();
+			int bytesRead = 0;
 
-				if (bytesRead < buffer.Length)
+			do
+			{
+				try
 				{
-					Array.Resize(ref buffer, bytesRead);
+					bytesRead = await fs.ReadAsync(buffer, cancellationToken);
+
+					if (bytesRead < buffer.Length)
+					{
+						Array.Resize(ref buffer, bytesRead);
+					}
+
+					file.CurrentProgress += bytesRead;
 				}
+				catch (OperationCanceledException)
+				{
+					await fs.DisposeAsync();
+
+					cancelCallback?.Invoke();
+					throw;
+				}
+				catch (Exception ex)
+				{
+					await fs.DisposeAsync();
+
+					failCallback?.Invoke(ex);
+					throw;
+				}
+
 				yield return buffer;
 
-				file.CurrentProgress += bytesRead;
-			}
+			} while (bytesRead > 0);
 
-			if (fileSentCallback is not null && !cancellationToken.IsCancellationRequested)
-			{
-				fileSentCallback();
-			}
+			await fs.DisposeAsync();
+
+			successCallback?.Invoke();
 		}
 
 		private void HandleFailedFile(string filePath)
