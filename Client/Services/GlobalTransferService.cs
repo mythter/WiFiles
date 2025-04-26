@@ -44,7 +44,8 @@ namespace Client.Services
 
 		public event EventHandler? SendingStopped;
 
-		public event EventHandler<FileModel>? ReceivingFileStarted;
+		public event EventHandler<FileTransferModel>? ReceivingFileStarted;
+		public event EventHandler<FileTransferModel>? ReceivingFileEnded;
 		public event EventHandler<string>? ReceivingFileFailed;
 
 		public event EventHandler? ReceivingStopped;

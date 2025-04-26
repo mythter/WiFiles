@@ -1,4 +1,4 @@
-﻿@page "/sendfiles"
+﻿@page "/selected-files"
 @using System.Text
 @using Blazored.LocalStorage
 @using Client.Constants
@@ -17,7 +17,7 @@
 			<i class="ph ph-trash"></i>
 		</BadgeButton>
 	}
-	else if (StorageService.SendFiles.Count > 0)
+	else if (StorageService.SelectedFiles.Count > 0)
 	{
 		<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
 			<i class="ph ph-broom"></i>
@@ -29,12 +29,12 @@
 </Header>
 
 <div class="files">
-	@foreach (var file in StorageService.SendFiles.Select((f, i) => new { File = f, Index = i }))
+	@foreach (var file in StorageService.SelectedFiles.Select((f, i) => new { File = f, Index = i }))
 	{
 		<FileComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileComponent>
 	}
 
-	@if (StorageService.SendFiles.Count == 0)
+	@if (StorageService.SelectedFiles.Count == 0)
 	{
 		<div class="message">
 			@("Select files you want to send")
@@ -70,15 +70,15 @@
 			}
 
 			if (!string.IsNullOrEmpty(filePath) &&
-				!StorageService.SendFiles.Any(f => f.Path == filePath))
+				!StorageService.SelectedFiles.Any(f => f.Path == filePath))
 			{
 				long fileSize = new FileInfo(filePath).Length;
 				FileModel file = new FileModel(filePath, fileSize);
-				StorageService.SendFiles.Add(file);
+				StorageService.SelectedFiles.Add(file);
 			}
 		}
 
-		await localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.SendFilesKey, StorageService.SendFiles);
+		await localStorage.SetItemAsync(LocalStorageConstants.SelectedFilesKey, StorageService.SelectedFiles);
 
 		if (notReadableFiles.Length > 0)
 		{
@@ -100,17 +100,17 @@
 
 		if (removeAll)
 		{
-			StorageService.SendFiles.Clear();
-			await localStorage.RemoveItemAsync(LocalStorageConstants.SendFilesKey);
+			StorageService.SelectedFiles.Clear();
+			await localStorage.RemoveItemAsync(LocalStorageConstants.SelectedFilesKey);
 		}
 		else
 		{
 			foreach (FileModel f in SelectedFiles)
 			{
-				StorageService.SendFiles.Remove(f);
+				StorageService.SelectedFiles.Remove(f);
 			}
 
-			await localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.SendFilesKey, StorageService.SendFiles);
+			await localStorage.SetItemAsync(LocalStorageConstants.SelectedFilesKey, StorageService.SelectedFiles);
 		}
 
 		SelectedFiles.Clear();

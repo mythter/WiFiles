@@ -1,0 +1,89 @@
+﻿@page "/sent-files"
+@using System.Text
+@using Blazored.LocalStorage
+@using Client.Constants
+@inject NavigationService NavigationService
+@inject ILocalStorageService localStorage
+@inject IStorageService StorageService
+@inject LocalTransferService TransferService
+
+<Header>
+	@if (SelectedFiles.Count > 0)
+	{
+		<BadgeButton OnClick="@(async () => await RemoveFiles())" Count="SelectedFiles.Count">
+			<i class="ph ph-trash"></i>
+		</BadgeButton>
+	}
+	else if (StorageService.SentFiles.Count > 0)
+	{
+		<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
+			<i class="ph ph-broom"></i>
+		</RealButton>
+	}
+	<RealButton Class="transparent left" OnClick="NavigationService.NavigateBack">
+		<i class="ph ph-arrow-left"></i>
+	</RealButton>
+</Header>
+
+<div class="files">
+	@foreach (var file in StorageService.SentFiles.Select((f, i) => new { File = f, Index = i }))
+	{
+		<FileTransferComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileTransferComponent>
+	}
+
+	@if (StorageService.SentFiles.Count == 0)
+	{
+		<div class="message">
+			@("You haven't sent any files yet")
+		</div>
+	}
+</div>
+
+@code {
+	[CascadingParameter(Name = "MessageBox")]
+	private MessageBox MessageBoxElement { get; set; } = null!;
+
+	private List<FileTransferModel> SelectedFiles { get; set; } = new();
+
+	// needed to reload animation after rerender
+	private string uniqueSuffix = Guid.NewGuid().ToString();
+
+	private async Task RemoveFiles(bool removeAll = false)
+	{
+		if (TransferService.ReceiverIp is not null)
+		{
+			MessageBoxElement.ShowWarning("You can't delete files from list while sending in progress.");
+			return;
+		}
+
+		if (removeAll)
+		{
+			StorageService.SentFiles.Clear();
+			await localStorage.RemoveItemAsync(LocalStorageConstants.SentFilesKey);
+		}
+		else
+		{
+			foreach (var f in SelectedFiles)
+			{
+				StorageService.SentFiles.Remove(f);
+			}
+
+			await localStorage.SetItemAsync(LocalStorageConstants.SentFilesKey, StorageService.SentFiles);
+		}
+
+		SelectedFiles.Clear();
+		uniqueSuffix = Guid.NewGuid().ToString();
+	}
+
+	private void OnFileClick(FileTransferModel file)
+	{
+		if (SelectedFiles.Contains(file))
+		{
+			SelectedFiles.Remove(file);
+		}
+		else
+		{
+			SelectedFiles.Add(file);
+		}
+	}
+}

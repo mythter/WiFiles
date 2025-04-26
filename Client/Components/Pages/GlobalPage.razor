@@ -11,14 +11,19 @@
 @inject ILogger<GlobalPage> logger
 
 <Header>
-	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
-	Count="StorageService.ReceiveFiles.Count">
+	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("received-files"))"
+				 Count="StorageService.ReceivedFiles.Count">
 		<i class="ph ph-download-simple"></i>
 	</BadgeButton>
-	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
-	Count="StorageService.SendFiles.Count">
+	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("sent-files"))"
+				 Count="StorageService.SentFiles.Count">
 		<i class="ph ph-upload-simple"></i>
 	</BadgeButton>
+	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("selected-files"))"
+				 Count="StorageService.SelectedFiles.Count">
+		<i class="ph ph-files"></i>
+	</BadgeButton>
+
 	<RealToggleButton Class="@($"left {ConnectionButtonClass}")"
 	IsChecked="gts.ConnectionState == HubConnectionState.Connected"
 	OnClick="@(() => gts.ConnectionState != HubConnectionState.Disconnected ? DisconnetFromServer() : ConnectToServer())">

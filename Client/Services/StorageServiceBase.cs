@@ -7,9 +7,11 @@ namespace Client.Services
 	{
 		public abstract string SaveFolder { get; protected set; }
 
-		public SynchronizedCollection<FileModel> SendFiles { get; set; } = [];
+		public SynchronizedCollection<FileModel> SelectedFiles { get; set; } = [];
 
-		public SynchronizedCollection<FileModel> ReceiveFiles { get; set; } = [];
+		public SynchronizedCollection<FileTransferModel> SentFiles { get; set; } = [];
+
+		public SynchronizedCollection<FileTransferModel> ReceivedFiles { get; set; } = [];
 
 		public virtual bool CheckIfFileReadable(string filePath, bool throwIfFails = false)
 		{

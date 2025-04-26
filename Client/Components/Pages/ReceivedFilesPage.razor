@@ -1,4 +1,4 @@
-﻿@page "/receivefiles"
+﻿@page "/received-files"
 @using System.Net
 @using Blazored.LocalStorage
 @using Client.Constants
@@ -20,7 +20,7 @@
 			<i class="ph ph-trash"></i>
 		</BadgeButton>
 	}
-	else if (StorageService.ReceiveFiles.Count > 0)
+	else if (StorageService.ReceivedFiles.Count > 0)
 	{
 		<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
 			<i class="ph ph-broom"></i>
@@ -44,12 +44,12 @@
 		</div>
 	</div>
 	<div class="files">
-		@foreach (var file in StorageService.ReceiveFiles.Select((f, i) => new { File = f, Index = i }))
+		@foreach (var file in StorageService.ReceivedFiles.Select((f, i) => new { File = f, Index = i }))
 		{
-			<FileComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileComponent>
+			<FileTransferComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileTransferComponent>
 		}
 
-		@if (StorageService.ReceiveFiles.Count == 0)
+		@if (StorageService.ReceivedFiles.Count == 0)
 		{
 			<div class="message">
 				@("You haven't received any files yet")
@@ -62,7 +62,7 @@
 	[CascadingParameter(Name = "MessageBox")]
 	public MessageBox MessageBoxElement { get; set; } = null!;
 
-	private List<FileModel> SelectedFiles { get; set; } = new();
+	private List<FileTransferModel> SelectedFiles { get; set; } = new();
 
 	// needed to reload animation after rerender
 	private string uniqueSuffix = Guid.NewGuid().ToString();
@@ -125,7 +125,7 @@
 
 	private void OnReceivingStopped(object? sender, EventArgs e)
 	{
-		SelectedFiles.RemoveAll(f => !StorageService.ReceiveFiles.Contains(f));
+		SelectedFiles.RemoveAll(f => !StorageService.ReceivedFiles.Contains(f));
 
 		InvokeAsync(StateHasChanged);
 	}
@@ -145,24 +145,24 @@
 
 		if (removeAll)
 		{
-			StorageService.ReceiveFiles.Clear();
-			await localStorage.RemoveItemAsync(LocalStorageConstants.ReceiveFilesKey);
+			StorageService.ReceivedFiles.Clear();
+			await localStorage.RemoveItemAsync(LocalStorageConstants.ReceivedFilesKey);
 		}
 		else
 		{
-			foreach (FileModel f in SelectedFiles)
+			foreach (var f in SelectedFiles)
 			{
-				StorageService.ReceiveFiles.Remove(f);
+				StorageService.ReceivedFiles.Remove(f);
 			}
 
-			await localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.ReceiveFilesKey, StorageService.ReceiveFiles);
+			await localStorage.SetItemAsync(LocalStorageConstants.ReceivedFilesKey, StorageService.ReceivedFiles);
 		}
 
 		SelectedFiles.Clear();
 		uniqueSuffix = Guid.NewGuid().ToString();
 	}
 
-	private void OnFileClick(FileModel file)
+	private void OnFileClick(FileTransferModel file)
 	{
 		if (SelectedFiles.Contains(file))
 		{

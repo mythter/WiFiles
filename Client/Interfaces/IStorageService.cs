@@ -5,8 +5,9 @@ namespace Client.Interfaces
 	public interface IStorageService
 	{
 		public string SaveFolder { get; }
-		public SynchronizedCollection<FileModel> SendFiles { get; set; }
-		public SynchronizedCollection<FileModel> ReceiveFiles { get; set; }
+		public SynchronizedCollection<FileModel> SelectedFiles { get; set; }
+		public SynchronizedCollection<FileTransferModel> SentFiles { get; set; }
+		public SynchronizedCollection<FileTransferModel> ReceivedFiles { get; set; }
 
 		public Task<List<string>> PickFilesAsync();
 		public Task<string?> PickFolderAsync();

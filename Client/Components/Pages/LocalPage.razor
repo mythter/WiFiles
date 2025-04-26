@@ -5,22 +5,25 @@
 @using System.Text
 @inject ILocalNetworkService lns
 @inject INetworkInfoService nis
-@inject IStorageService storage
-@inject IJSRuntime js
 @inject NavigationService NavigationService
 @inject LocalTransferService TransferService
 @inject IStorageService StorageService
 @implements IDisposable
 
 <Header>
-	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("receivefiles"))"
-	Count="StorageService.ReceiveFiles.Count">
+	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("received-files"))"
+				 Count="StorageService.ReceivedFiles.Count">
 		<i class="ph ph-download-simple"></i>
 	</BadgeButton>
-	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("sendfiles"))"
-	Count="StorageService.SendFiles.Count">
+	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("sent-files"))"
+				 Count="StorageService.SentFiles.Count">
 		<i class="ph ph-upload-simple"></i>
 	</BadgeButton>
+	<BadgeButton OnClick="@(() => NavigationService.NavigateTo("selected-files"))"
+				 Count="StorageService.SelectedFiles.Count">
+		<i class="ph ph-files"></i>
+	</BadgeButton>
+
 	<RealButton Class="left" OnClick="@RefreshIps">
 		<i class="ph ph-arrows-clockwise"></i>
 	</RealButton>

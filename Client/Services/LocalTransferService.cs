@@ -28,11 +28,16 @@ namespace Client.Services
 
 		public IPAddress? ReceiverIp { get; private set; }
 
-		public event EventHandler<FileModel>? ReceivingFileStarted;
+		public event EventHandler<FileTransferModel>? ReceivingFileStarted;
+		public event EventHandler<FileTransferModel>? ReceivingFileEnded;
 		public event EventHandler<string>? ReceivingFileFailed;
 
 		public event EventHandler? ReceivingStopped;
 		public event EventHandler? ReceivingFinishedSuccessfully;
+
+		public event EventHandler<FileTransferModel>? SendingFileStarted;
+		public event EventHandler<FileTransferModel>? SendingFileEnded;
+		public event EventHandler<string>? SendingFileFailed;
 
 		public event EventHandler? SendingStopped;
 		public event EventHandler? SendingFinishedSuccessfully;
@@ -80,7 +85,7 @@ namespace Client.Services
 
 				if (isAccepted)
 				{
-					await SendFilesAsync(stream, files, token);
+					await SendFilesAsync(stream, files, ip, token);
 
 					SendingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
 				}
@@ -132,7 +137,7 @@ namespace Client.Services
 				.ToList();
 
 			var localDevice = new LocalDeviceModel(_deviceService.GetCurrentDeviceInfo());
-			LocalRequestModel request = new LocalRequestModel(localDevice, filesMetadata);
+			var request = new LocalRequestModel(localDevice, filesMetadata);
 
 			string requestJson = JsonSerializer.Serialize(request);
 			byte[] requestBytes = Encoding.UTF8.GetBytes(requestJson);
@@ -156,15 +161,40 @@ namespace Client.Services
 			return request;
 		}
 
-		private async Task SendFilesAsync(NetworkStream stream, List<FileModel> files, CancellationToken cancellationToken)
+		private async Task SendFilesAsync(NetworkStream stream, List<FileModel> files, IPAddress receiver, CancellationToken cancellationToken)
 		{
-			byte[] buffer;
-			foreach (FileModel file in files)
+			foreach (var fileModel in files)
 			{
-				int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
-				using FileStream fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
-				long size = fs.Length < bufferSize ? fs.Length : bufferSize;
-				buffer = new byte[size];
+				FileTransferModel file = new(fileModel, TransferType.Local)
+				{
+					Status = TransferStatus.InProgress,
+					Receiver = receiver.ToString()
+				};
+
+				try
+				{
+					SendingFileStarted?.Invoke(this, file);
+
+					await SendFileAsync(stream, file, cancellationToken);
+
+					file.Status = TransferStatus.Finished;
+					SendingFileEnded?.Invoke(this, file);
+				}
+				catch (Exception)
+		{
+					file.Status = TransferStatus.Failed;
+					SendingFileFailed?.Invoke(this, fileModel.Path);
+					throw;
+				}
+			}
+		}
+
+		private async Task SendFileAsync(NetworkStream stream, FileTransferModel file, CancellationToken cancellationToken)
+			{
+			var bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
+			await using var fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
+			var size = fs.Length < bufferSize ? fs.Length : bufferSize;
+			var buffer = new byte[size];
 				int bytesRead;
 				while ((bytesRead = await fs.ReadAsync(buffer)) > 0)
 				{
@@ -173,34 +203,44 @@ namespace Client.Services
 						Array.Resize(ref buffer, bytesRead);
 					}
 					await stream.WriteWithTimeoutAsync(buffer, SendTimeout, cancellationToken);
-				}
+				file.CurrentProgress += bytesRead;
 			}
 		}
 
-		private async Task ReceiveFilesAsync(
-			NetworkStream stream,
-			List<FileMetadata> files,
-			CancellationToken cancellationToken)
-		{
-			foreach (var file in files)
+		private async Task ReceiveFilesAsync(NetworkStream stream, LocalRequestModel request, CancellationToken cancellationToken)
 			{
-				await ReceiveFileAsync(stream, file, cancellationToken);
-			}
-		}
+			string? sender = request.Sender?.ToString();
 
-		private async Task ReceiveFileAsync(NetworkStream stream, FileMetadata fileMetadata, CancellationToken cancellationToken)
+			foreach (var fileMetadata in request.Files)
 		{
 			string filePath = FileHelper.GetUniqueFilePath(fileMetadata.Name, _storageService.SaveFolder);
-			FileModel file = new(filePath, fileMetadata.Size)
+				FileTransferModel file = new(filePath, fileMetadata.Size, TransferType.Local)
 			{
-				Status = TransferStatus.InProgress
+					Status = TransferStatus.InProgress,
+					Sender = sender
 			};
 
 			try
 			{
-				using FileStream fs = new FileStream(file.Path, FileMode.Create, FileAccess.Write);
 				ReceivingFileStarted?.Invoke(this, file);
 
+					await ReceiveFileAsync(stream, file, cancellationToken);
+
+					file.Status = TransferStatus.Finished;
+					ReceivingFileEnded?.Invoke(this, file);
+				}
+				catch (Exception)
+				{
+					file.Status = TransferStatus.Failed;
+					HandleFailedFile(file.Path);
+					throw;
+				}
+			}
+		}
+
+		private async Task ReceiveFileAsync(NetworkStream stream, FileTransferModel file, CancellationToken cancellationToken)
+		{
+			using FileStream fs = new(file.Path, FileMode.Create, FileAccess.Write);
 				long receivedSize = 0;
 				byte[] buffer;
 				int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
@@ -216,15 +256,6 @@ namespace Client.Services
 					receivedSize += size;
 					file.CurrentProgress = receivedSize;
 				}
-
-				file.Status = TransferStatus.Finished;
-			}
-			catch (Exception)
-			{
-				file.Status = TransferStatus.Failed;
-				HandleFailedFile(file.Path);
-				throw;
-			}
 		}
 
 		public async Task StartListeningAsync()
@@ -320,7 +351,7 @@ namespace Client.Services
 				IsReceiving = true;
 				ReceivingTokenSource = new CancellationTokenSource();
 
-				await ReceiveFilesAsync(stream, request.Files, ReceivingTokenSource.Token);
+				await ReceiveFilesAsync(stream, request, ReceivingTokenSource.Token);
 
 				ReceivingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
 			}

@@ -57,9 +57,12 @@
 
 		LocalTransferService.OnSendFilesRequest = ShowRequest;
 
+		LocalTransferService.SendingFileStarted += AddSendingFile;
+		LocalTransferService.SendingFileFailed += RemoveSendingFile;
 		LocalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
 
 		LocalTransferService.ReceivingFileStarted += AddReceivingFile;
+		LocalTransferService.ReceivingFileEnded += UpdateCache;
 		LocalTransferService.ReceivingFileFailed += RemoveReceivingFile;
 		LocalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
 
@@ -71,9 +74,12 @@
 
 		GlobalTransferService.OnSendFilesRequest = ShowRequest;
 
+		GlobalTransferService.SendingFileStarted += AddSendingFile;
+		GlobalTransferService.SendingFileFailed += RemoveSendingFile;
 		GlobalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
 
 		GlobalTransferService.ReceivingFileStarted += AddReceivingFile;
+		GlobalTransferService.ReceivingFileEnded += UpdateCache;
 		GlobalTransferService.ReceivingFileFailed += RemoveReceivingFile;
 		GlobalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
 
@@ -93,14 +99,18 @@
 
 	private async Task InitFromLocalStorage()
 	{
-		if (await localStorage.GetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.SendFilesKey) is { } sendFiles)
+		if (await localStorage.GetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.SelectedFilesKey) is { } selectedFiles)
 		{
-			StorageService.SendFiles = sendFiles;
+			StorageService.SelectedFiles = selectedFiles;
 		}
-		if (await localStorage.GetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.ReceiveFilesKey) is { } receiveFiles)
+		if (await localStorage.GetItemAsync<SynchronizedCollection<FileTransferModel>>(LocalStorageConstants.SentFilesKey) is { } sendFiles)
 		{
-			StorageService.ReceiveFiles = receiveFiles;
+			StorageService.SentFiles = sendFiles;
 		}
+		if (await localStorage.GetItemAsync<SynchronizedCollection<FileTransferModel>>(LocalStorageConstants.ReceivedFilesKey) is { } receiveFiles)
+		{
+			StorageService.ReceivedFiles = receiveFiles;
+	}
 	}
 
 	private Task<bool> ShowRequest(RequestModel request)
@@ -156,24 +166,53 @@
 		MessageBoxElement.ShowInfo("Sender disconnected.", "Transfer stopped");
 	}
 
-	private void AddReceivingFile(object? sender, FileModel file)
+	private void UpdateCache(object? sender, FileTransferModel file)
 	{
-		StorageService.ReceiveFiles.Add(file);
-		localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.ReceiveFilesKey, StorageService.ReceiveFiles);
+		if(file.Receiver is null)
+		{
+			localStorage.SetItemAsync(LocalStorageConstants.ReceivedFilesKey, StorageService.ReceivedFiles);
+		}
+		else
+		{
+			localStorage.SetItemAsync(LocalStorageConstants.ReceivedFilesKey, StorageService.SentFiles);
+		}
+	}
+
+	private void AddReceivingFile(object? sender, FileTransferModel file)
+	{
+		StorageService.ReceivedFiles.Add(file);
 		InvokeAsync(StateHasChanged);
 	}
 
 	private void RemoveReceivingFile(object? sender, string filePath)
 	{
-		for (int i = StorageService.ReceiveFiles.Count - 1; i >= 0; i--)
+		RemoveLastFile(StorageService.ReceivedFiles, filePath);
+		localStorage.SetItemAsync(LocalStorageConstants.ReceivedFilesKey, StorageService.ReceivedFiles);
+		InvokeAsync(StateHasChanged);
+	}
+
+	private void AddSendingFile(object? sender, FileTransferModel file)
+	{
+		StorageService.SentFiles.Add(file);
+		InvokeAsync(StateHasChanged);
+	}
+
+	private void RemoveSendingFile(object? sender, string filePath)
+	{
+		RemoveLastFile(StorageService.SentFiles, filePath);
+		localStorage.SetItemAsync(LocalStorageConstants.SentFilesKey, StorageService.SentFiles);
+		InvokeAsync(StateHasChanged);
+	}
+
+	private void RemoveLastFile(SynchronizedCollection<FileTransferModel> files, string filePath)
+	{
+		for (int i = files.Count - 1; i >= 0; i--)
 		{
-			if (StorageService.ReceiveFiles[i].Path == filePath)
+			if (files[i].Path == filePath)
 			{
-				StorageService.ReceiveFiles.Remove(StorageService.ReceiveFiles[i]);
+				files.Remove(files[i]);
 				break;
 			}
 		}
-		localStorage.SetItemAsync<SynchronizedCollection<FileModel>>(LocalStorageConstants.ReceiveFilesKey, StorageService.ReceiveFiles);
-		InvokeAsync(StateHasChanged);
 	}
 }
