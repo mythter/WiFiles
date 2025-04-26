@@ -1,8 +1,5 @@
 ﻿@page "/local"
 @using System.Net
-@using System.Net.NetworkInformation
-@using System.Net.Sockets
-@using System.Text
 @inject ILocalNetworkService lns
 @inject INetworkInfoService nis
 @inject NavigationService NavigationService
@@ -27,8 +24,10 @@
 	<RealButton Class="left" OnClick="@RefreshIPs">
 		<i class="ph ph-arrows-clockwise"></i>
 	</RealButton>
-	<RealToggleButton IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
-		@if (Listening)
+	<RealToggleButton IsChecked="@UseEncryption"
+					  OnClick="@(() => UseEncryption = !UseEncryption)">
+		<i class="ph ph-key"></i>
+	</RealToggleButton>
 	<RealToggleButton IsChecked="TransferService.IsListening"
 					  OnClick="@(() => TransferService.IsListening ? StopListening() : StartListening())">
 		@if (TransferService.IsListening)
@@ -82,7 +81,7 @@
 
 	public bool Loading { get; set; }
 
-	public bool Listening { get; set; }
+	public bool UseEncryption { get; set; }
 
 	[CascadingParameter(Name = "MessageBox")]
 	private MessageBox MessageBoxElement { get; set; } = null!;
@@ -111,7 +110,7 @@
 		if (SelectedIP is not null)
 		{
 			_ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIP));
-	}
+		}
 	}
 
 	private void OnDeviceFound(object? sender, LocalDeviceModel device)
@@ -128,9 +127,9 @@
 		Devices.Clear();
 
 		if (IPAddress.TryParse(SelectedIP, out var ip))
-	{
+		{
 			await lns.StartMulticastScanAsync(ip);
-	}
+		}
 	}
 
 	private async Task StartListening()
