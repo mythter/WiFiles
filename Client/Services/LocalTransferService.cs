@@ -22,6 +22,7 @@ namespace Client.Services
 
 		public bool IsListening { get; private set; }
 		public bool IsReceiving { get; private set; }
+		public bool IsSending{ get; private set; }
 
 		public int ReceiveTimeout { get; set; } = 15_000;
 		public int SendTimeout { get; set; } = 15_000;
@@ -74,6 +75,7 @@ namespace Client.Services
 			try
 			{
 				ReceiverIp = ip;
+				IsSending = true;
 
 				await tcpClient.ConnectAsync(ip, NetworkConstants.Port, token);
 				NetworkStream stream = tcpClient.GetStream();
@@ -120,6 +122,7 @@ namespace Client.Services
 				ClientTokenSource = null;
 
 				ReceiverIp = null;
+				IsSending = false;
 				SendingStopped?.Invoke(this, EventArgs.Empty);
 			}
 		}
@@ -127,7 +130,6 @@ namespace Client.Services
 		public void StopSending()
 		{
 			ClientTokenSource?.Cancel();
-			ReceiverIp = null;
 		}
 
 		private async Task SendRequestAsync(List<FileModel> filesToSend, NetworkStream stream, CancellationToken cancellationToken)
@@ -181,7 +183,7 @@ namespace Client.Services
 					SendingFileEnded?.Invoke(this, file);
 				}
 				catch (Exception)
-		{
+				{
 					file.Status = TransferStatus.Failed;
 					SendingFileFailed?.Invoke(this, fileModel.Path);
 					throw;
@@ -190,39 +192,39 @@ namespace Client.Services
 		}
 
 		private async Task SendFileAsync(NetworkStream stream, FileTransferModel file, CancellationToken cancellationToken)
-			{
+		{
 			var bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
 			await using var fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
 			var size = fs.Length < bufferSize ? fs.Length : bufferSize;
 			var buffer = new byte[size];
-				int bytesRead;
-				while ((bytesRead = await fs.ReadAsync(buffer)) > 0)
+			int bytesRead;
+			while ((bytesRead = await fs.ReadAsync(buffer)) > 0)
+			{
+				if (bytesRead < buffer.Length)
 				{
-					if (bytesRead < buffer.Length)
-					{
-						Array.Resize(ref buffer, bytesRead);
-					}
-					await stream.WriteWithTimeoutAsync(buffer, SendTimeout, cancellationToken);
+					Array.Resize(ref buffer, bytesRead);
+				}
+				await stream.WriteWithTimeoutAsync(buffer, SendTimeout, cancellationToken);
 				file.CurrentProgress += bytesRead;
 			}
 		}
 
 		private async Task ReceiveFilesAsync(NetworkStream stream, LocalRequestModel request, CancellationToken cancellationToken)
-			{
+		{
 			string? sender = request.Sender?.ToString();
 
 			foreach (var fileMetadata in request.Files)
-		{
-			string filePath = FileHelper.GetUniqueFilePath(fileMetadata.Name, _storageService.SaveFolder);
-				FileTransferModel file = new(filePath, fileMetadata.Size, TransferType.Local)
 			{
+				string filePath = FileHelper.GetUniqueFilePath(fileMetadata.Name, _storageService.SaveFolder);
+				FileTransferModel file = new(filePath, fileMetadata.Size, TransferType.Local)
+				{
 					Status = TransferStatus.InProgress,
 					Sender = sender
-			};
+				};
 
-			try
-			{
-				ReceivingFileStarted?.Invoke(this, file);
+				try
+				{
+					ReceivingFileStarted?.Invoke(this, file);
 
 					await ReceiveFileAsync(stream, file, cancellationToken);
 
@@ -241,21 +243,21 @@ namespace Client.Services
 		private async Task ReceiveFileAsync(NetworkStream stream, FileTransferModel file, CancellationToken cancellationToken)
 		{
 			using FileStream fs = new(file.Path, FileMode.Create, FileAccess.Write);
-				long receivedSize = 0;
-				byte[] buffer;
-				int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
-				while (receivedSize < file.Size)
+			long receivedSize = 0;
+			byte[] buffer;
+			int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
+			while (receivedSize < file.Size)
+			{
+				buffer = new byte[bufferSize < file.Size - receivedSize ? bufferSize : file.Size - receivedSize];
+				int size = await stream.ReadWithTimeoutAsync(buffer, ReceiveTimeout, cancellationToken);
+				if (size == 0)
 				{
-					buffer = new byte[bufferSize < file.Size - receivedSize ? bufferSize : file.Size - receivedSize];
-					int size = await stream.ReadWithTimeoutAsync(buffer, ReceiveTimeout, cancellationToken);
-					if (size == 0)
-					{
-						throw new OperationCanceledException("Sender cancelled the operation or was disconnected.");
-					}
-					await fs.WriteAsync(buffer.AsMemory(0, size));
-					receivedSize += size;
-					file.CurrentProgress = receivedSize;
+					throw new OperationCanceledException("Sender cancelled the operation or was disconnected.");
 				}
+				await fs.WriteAsync(buffer.AsMemory(0, size));
+				receivedSize += size;
+				file.CurrentProgress = receivedSize;
+			}
 		}
 
 		public async Task StartListeningAsync()
