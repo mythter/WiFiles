@@ -160,11 +160,11 @@ namespace Client.Services
 			ReceiveTokenSource?.Cancel();
 		}
 
-		private async Task SendRequestAsync(long receiverSessionId, List<FileModel> files, CancellationToken cancellationToken = default)
+		private async Task SendRequestAsync(long receiverSessionId, List<FileModel> files)
 		{
 			try
 			{
-				SendRequestTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+				SendRequestTokenSource = new CancellationTokenSource();
 
 				var filesMetadata = files
 					.Select(f => new FileMetadata(Path.GetFileName(f.Path), f.Size))
@@ -210,10 +210,7 @@ namespace Client.Services
 			FilesToSend.Clear();
 
 			SendRequestTokenSource?.Cancel();
-
 			SendTokenSource?.Cancel();
-			SendTokenSource?.Dispose();
-			SendTokenSource = null;
 		}
 
 		private Task OnConnectionClosed(Exception? ex)
@@ -283,20 +280,23 @@ namespace Client.Services
 
 			if (response.IsAccepted && FilesToSend.Count == SendRequest?.Files.Count)
 			{
-				SendTokenSource = new CancellationTokenSource();
-
 				// don't block the flow so that we can receive messages from the server while streaming
 				_ = Task.Run(async () =>
 				{
+					SendTokenSource = new CancellationTokenSource();
+
 					try
 					{
 						await SendFilesAsync(FilesToSend, SendRequest.Files, response.ReceiverName, SendTokenSource.Token);
 					}
 					finally
 					{
+						SendTokenSource?.Dispose();
+						SendTokenSource = null;
+
 						StopSending();
 					}
-				}, SendTokenSource.Token);
+				});
 			}
 			else
 			{
