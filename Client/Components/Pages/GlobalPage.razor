@@ -127,12 +127,7 @@
 		}
 	}
 
-	private void UpdateState(object? sender, EventArgs e)
-	{
-		InvokeAsync(StateHasChanged);
-	}
-
-	private void UpdateState(object? sender, long e)
+	private void UpdateState<T>(object? sender, T _)
 	{
 		InvokeAsync(StateHasChanged);
 	}
