@@ -93,10 +93,45 @@
 
 		#endregion
 
+		#region Updating state
+
+		LocalTransferService.SendingFileStarted += UpdateState;
+		LocalTransferService.SendingFileFailed += UpdateState;
+		LocalTransferService.SendingFinishedSuccessfully += UpdateState;
+
+		LocalTransferService.ReceivingFileStarted += UpdateState;
+		LocalTransferService.ReceivingFileEnded += UpdateState;
+		LocalTransferService.ReceivingFileFailed += UpdateState;
+		LocalTransferService.ReceivingFinishedSuccessfully += UpdateState;
+
+		LocalTransferService.ExceptionHandled += UpdateState;
+
+
+		GlobalTransferService.SendingFileStarted += UpdateState;
+		GlobalTransferService.SendingFileFailed += UpdateState;
+		GlobalTransferService.SendingFinishedSuccessfully += UpdateState;
+
+		GlobalTransferService.ReceivingFileStarted += UpdateState;
+		GlobalTransferService.ReceivingFileEnded += UpdateState;
+		GlobalTransferService.ReceivingFileFailed += UpdateState;
+		GlobalTransferService.ReceivingFinishedSuccessfully += UpdateState;
+
+		GlobalTransferService.ReceivingCancelled += UpdateState;
+		GlobalTransferService.SendingCancelled += UpdateState;
+
+		GlobalTransferService.ReceiverDisconnected += UpdateState;
+		GlobalTransferService.SenderDisconnected += UpdateState;
+
+		#endregion
+
 		await InitFromLocalStorage();
 
 		NavigationService.NavigateTo("local");
-		// NavigationService.NavigateTo("global");
+	}
+
+	private void UpdateState<T>(object? sender, T _)
+	{
+		InvokeAsync(StateHasChanged);
 	}
 
 	private async Task InitFromLocalStorage()
