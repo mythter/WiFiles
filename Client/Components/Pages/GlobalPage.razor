@@ -35,6 +35,20 @@
 	<div class="wrapper">
 		<div class="field">
 			<Input CornerRadius="5"
+				   Text="@ServerUrl"
+				   Placeholder="Server URL"
+				   FontSize="24px"
+				   OnTextChanged="OnServerUrlChange" />
+			<RectangleRealButton CornerRadius="5"
+								 Width="35px"
+								 Height="35px"
+								 OnClick="@PasteServerUrl">
+				<i class="ph ph-pen"></i>
+			</RectangleRealButton>
+		</div>
+		<div class="field">
+
+			<Input CornerRadius="5"
 			Text="@gts.SessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)"
 			IsDisabled=true
 			Pattern="__ ___ ___ ___"
@@ -63,7 +77,7 @@
 			<RectangleRealButton CornerRadius="5"
 			Width="35px"
 			Height="35px"
-			OnClick="PasteIdFromClipboard">
+								 OnClick="PasteReceiverId">
 				<i class="ph ph-pen"></i>
 			</RectangleRealButton>
 		</div>
@@ -83,6 +97,8 @@
 
 	private string? ReceiverId { get; set; }
 
+	private string? ServerUrl { get; set; }
+
 	private string SendButtonText => gts.IsSending ? "Cancel" : "Send";
 
 	IJSObjectReference jsModule = null!;
@@ -97,6 +113,8 @@
 		gts.SendingStarted += UpdateState;
 		gts.SendingStopped += UpdateState;
 		gts.SendingFinishedSuccessfully += UpdateState;
+
+		ServerUrl = await localStorage.GetItemAsync<string>(LocalStorageConstants.ServerUrlKey);
 
 		if (gts.IsSending)
 		{
@@ -120,13 +138,31 @@
 		InvokeAsync(StateHasChanged);
 	}
 
-	private async Task OnReceiverIdChange(string newText)
+	private async Task OnServerUrlChange(string url)
 	{
-		ReceiverId = newText;
-		await localStorage.SetItemAsync<string>(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+		ServerUrl = url;
+		await localStorage.SetItemAsync(LocalStorageConstants.ServerUrlKey, ServerUrl);
 	}
 
-	private async Task PasteIdFromClipboard()
+	private async Task OnReceiverIdChange(string receiverId)
+	{
+		ReceiverId = receiverId;
+		await localStorage.SetItemAsync(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+	}
+
+	private async Task PasteReceiverId()
+	{
+		ReceiverId = await PasteFromClipboard(IsSessionId: true);
+		await localStorage.SetItemAsync(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+	}
+
+	private async Task PasteServerUrl()
+	{
+		ServerUrl = await PasteFromClipboard();
+		await localStorage.SetItemAsync(LocalStorageConstants.ServerUrlKey, ServerUrl);
+	}
+
+	private async Task<string?> PasteFromClipboard(bool IsSessionId = false)
 	{
 		try
 		{
@@ -134,22 +170,26 @@
 				? await Clipboard.Default.GetTextAsync()
 				: await jsModule.InvokeAsync<string>("ClipboardHelper.ReadFromClipboard");
 
-			if (clipboardText is null)
-			{
-				return;
-			}
+			clipboardText = clipboardText?.Trim();
 
+			if (IsSessionId && clipboardText is not null)
+			{
 			string numbers = new string(clipboardText.Where(c => char.IsDigit(c)).Take(11).ToArray());
 			if (long.TryParse(numbers, out long value))
 			{
-				ReceiverId = value.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate);
-				await localStorage.SetItemAsync<string>(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+					var receiverId = value.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate);
+					return receiverId;
+				}
 			}
+
+			return clipboardText;
 		}
 		catch (Exception ex)
 		{
 			logger.LogError(ex, "Error occured while pasting from the clipboard.");
 		}
+
+		return null;
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)

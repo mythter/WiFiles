@@ -10,6 +10,6 @@
 
 		public const string ReceivedFilesKey = "receivedFiles";
 
-		public const string ReceiveFilesKey = "receiveFiles";
+		public const string ServerUrlKey = "serverUrl";
 	}
 }
