@@ -9,35 +9,35 @@ namespace Server.Hubs
 {
 	public class FileHub(ConnectionManager connectionManager, SessionManager sessionManager, ILogger<FileHub> logger) : Hub
 	{
-		public async Task SendRequest(long whomSessionId, GlobalRequestModel request)
+		public async Task SendRequest(GlobalRequestModel request)
 		{
-			if (connectionManager.GetBySessionId(whomSessionId) is string whomConnectionId)
+			if (connectionManager.GetBySessionId(request.ReceiverSessionId) is string receiverConnectionId)
 			{
-				LogRequest(request, whomConnectionId, whomSessionId);
+				LogRequest(request, receiverConnectionId, request.ReceiverSessionId);
 
-				await Clients.Client(whomConnectionId).SendAsync(ServerConstants.FileHub.ReceiveRequest, request);
+				await Clients.Client(receiverConnectionId).SendAsync(ServerConstants.FileHub.ReceiveRequest, request);
 			}
 			else
 			{
-				await Clients.Caller.SendAsync(ServerConstants.FileHub.SessionIdDoesNotExist, whomSessionId);
+				await Clients.Caller.SendAsync(ServerConstants.FileHub.SessionIdDoesNotExist, request.ReceiverSessionId);
 			}
 		}
 
-		public async Task SendResponse(long whomSessionId, GlobalResponseModel response)
+		public async Task SendResponse(GlobalResponseModel response)
 		{
-			if (connectionManager.GetBySessionId(whomSessionId) is string whomConnectionId)
+			if (connectionManager.GetBySessionId(response.SenderSessionId) is string senderConnectionId)
 			{
-				LogResponse(response.IsAccepted, whomConnectionId, whomSessionId);
+				LogResponse(response.IsAccepted, senderConnectionId, response.SenderSessionId);
 
 				if (response.IsAccepted)
 				{
-					await sessionManager.TryAddAsync(whomConnectionId, Context.ConnectionId);
+					await sessionManager.TryAddAsync(senderConnectionId, Context.ConnectionId);
 					logger.LogInformation(
 						"SESSION CREATED: sender: {SenderConnectionId}, receiver {ReceiverConnectionId}",
-						whomConnectionId, Context.ConnectionId);
+						senderConnectionId, Context.ConnectionId);
 				}
 
-				await Clients.Client(whomConnectionId).SendAsync(ServerConstants.FileHub.ReceiveResponse, response);
+				await Clients.Client(senderConnectionId).SendAsync(ServerConstants.FileHub.ReceiveResponse, response);
 			}
 		}
 

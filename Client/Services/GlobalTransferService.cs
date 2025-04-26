@@ -172,8 +172,8 @@ namespace Client.Services
 
 				var deviceModel = new GlobalDeviceModel(_deviceService.GetCurrentDeviceInfo());
 
-				SendRequest = new GlobalRequestModel(SessionId, deviceModel, filesMetadata);
-				await _connection.InvokeAsync(ServerConstants.FileHub.SendRequest, receiverSessionId, SendRequest, cancellationToken);
+				SendRequest = new GlobalRequestModel(SessionId, receiverSessionId, deviceModel, filesMetadata);
+				await _connection.InvokeAsync(ServerConstants.FileHub.SendRequest, SendRequest, SendRequestTokenSource.Token);
 			}
 			catch (Exception ex)
 			{
@@ -247,8 +247,8 @@ namespace Client.Services
 
 			IsReceiving = accepted;
 
-			var response = new GlobalResponseModel(_deviceService.GetCurrentDeviceInfo().ToString(), accepted);
-			await _connection.InvokeAsync(ServerConstants.FileHub.SendResponse, request.SenderSessionId, response);
+			var response = new GlobalResponseModel(SessionId, request.SenderSessionId, _deviceService.GetCurrentDeviceInfo().ToString(), accepted);
+			await _connection.InvokeAsync(ServerConstants.FileHub.SendResponse, response);
 
 			if (!accepted) return;
 
