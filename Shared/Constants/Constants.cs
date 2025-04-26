@@ -14,10 +14,6 @@
 
 			public const string ReceiveResponse = "ReceiveResponse";
 
-			public const string StartSendingFile = "StartSendingFile";
-
-			public const string StartReceivingFile = "StartReceivingFile";
-
 			public const string SendFile = "SendFile";
 
 			public const string ReceiveFile = "ReceiveFile";
@@ -26,13 +22,15 @@
 
 			public const string ReceiverDisconnected = "ReceiverDisconnected";
 
-			public const string CancelReceiving = "CancelReceiving";
-
 			public const string CancelSending = "CancelSending";
 
 			public const string SendingCancelled = "SendingCancelled";
 
 			public const string ReceivingCancelled = "ReceivingCancelled";
+
+			public const string SendingAborted = "SendingAborted";
+
+			public const string ReceivingAborted = "ReceivingAborted";
 
 			public const string SessionIdDoesNotExist = "SessionIdDoesNotExist";
 		}

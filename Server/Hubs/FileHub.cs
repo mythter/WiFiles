@@ -20,7 +20,7 @@ namespace Server.Hubs
 			else
 			{
 				await Clients.Caller.SendAsync(ServerConstants.FileHub.SessionIdDoesNotExist, whomSessionId);
-		}
+			}
 		}
 
 		public async Task SendResponse(long whomSessionId, GlobalResponseModel response)
@@ -40,67 +40,61 @@ namespace Server.Hubs
 				await Clients.Client(whomConnectionId).SendAsync(ServerConstants.FileHub.ReceiveResponse, response);
 			}
 		}
-		public async Task StartSendingFile(long whomSessionId, FileMetadata file, Guid fileId, bool isLast)
+
+		public async Task CancelSending()
 		{
+			logger.LogInformation("CANCEL SENDING from {ConnectionId}", Context.ConnectionId);
+
+			if (await sessionManager.GetBySenderConnectionId(Context.ConnectionId) is { } session)
+			{
+				await session.CancellationTokenSource.CancelAsync();
+				await Clients.Client(session.ReceiverConnectionId).SendAsync(ServerConstants.FileHub.SendingCancelled);
+			}
+
+			await sessionManager.RemoveBySenderAsync(Context.ConnectionId);
+
+			logger.LogInformation(
+				"SESSION DELETED: sender: {SenderConnectionId}, receiver {ReceiverConnectionId}",
+				Context.ConnectionId, "");
+		}
+
+		public async Task SendFile(long whomSessionId, IAsyncEnumerable<byte[]> stream, Guid fileId)
+		{
+			logger.LogInformation("Send file to {WhomSessionId}", whomSessionId);
+
 			if (connectionManager.GetBySessionId(whomSessionId) is string whomConnectionId)
 			{
 				var session = await sessionManager.GetBySenderAndReceiverConnectionIdAsync(Context.ConnectionId, whomConnectionId);
 
-				if (session is not null)
+				//var channel = Channel.CreateBounded<byte[]>(20);
+				var channel = Channel.CreateUnbounded<byte[]>();
+
+				if (session is not null && !session.FileChannels.TryAdd(fileId, channel))
 				{
-					//session.FileChannels.TryAdd(fileId, Channel.CreateBounded<byte[]>(20));
-					session.FileChannels.TryAdd(fileId, Channel.CreateUnbounded<byte[]>());
-					await Clients.Client(whomConnectionId).SendAsync(ServerConstants.FileHub.StartReceivingFile, file, fileId, isLast);
+					session.FileChannels.TryGetValue(fileId, out channel);
 				}
-			}
-		}
 
-		public async Task CancelSending(long receiverSessionId)
-		{
-			if (connectionManager.GetBySessionId(receiverSessionId) is string receiverConnectionId)
-			{
-				await Clients.Client(receiverConnectionId).SendAsync(ServerConstants.FileHub.CancelReceiving);
-
-				LogSendingStopped(receiverConnectionId, receiverSessionId);
-
-				await sessionManager.RemoveBySenderAsync(Context.ConnectionId);
-
-				logger.LogInformation(
-					"SESSION DELETED: sender: {SenderConnectionId}, receiver {ReceiverConnectionId}",
-					Context.ConnectionId, receiverConnectionId);
-			}
-		}
-
-		public async Task SendFile(long whomSessionId, IAsyncEnumerable<byte[]> stream, Guid fileId, bool isLast)
-		{
-			if (connectionManager.GetBySessionId(whomSessionId) is string whomConnectionId)
-			{
-				var session = await sessionManager.GetBySenderAndReceiverConnectionIdAsync(Context.ConnectionId, whomConnectionId);
-
-				if (session is not null && session.FileChannels.TryGetValue(fileId, out var channel))
+				if (session is not null && channel is not null)
 				{
 					Exception? exception = null;
+					bool senderCancelled = false;
 					try
 					{
 						await foreach (var chunk in stream)
 						{
-							await channel.Writer.WriteAsync(chunk);
-						}
-
-						if (isLast)
-						{
-							await sessionManager.RemoveBySenderAsync(Context.ConnectionId);
+							await channel.Writer.WriteAsync(chunk, session.CancellationTokenSource.Token);
 						}
 					}
 					catch (HubException ex) when (ex.Message == "Stream canceled by client.")
 					{
 						logger.LogError(ex, "Sending cancelled");
 						await Clients.Client(session.ReceiverConnectionId).SendAsync(ServerConstants.FileHub.SendingCancelled);
+						senderCancelled = true;
 						exception = ex;
 					}
 					catch (OperationCanceledException ex)
 					{
-						logger.LogError(ex, "Sender disconnected");
+						logger.LogError(ex, "Sending operation cancelled");
 						exception = ex;
 					}
 					catch (Exception ex)
@@ -113,30 +107,53 @@ namespace Server.Hubs
 						var res = channel.Writer.TryComplete(exception);
 						logger.LogInformation("SendFile Channel writer completed: {IsChannelWriterCompleted}", res);
 
-						// close seesion when exception occurred or last file was transferred
-						if (exception is not null || isLast)
+						// close seesion when exception occurred
+						if (exception is not null)
 						{
 							await sessionManager.RemoveBySenderAsync(Context.ConnectionId);
+
+							if (!senderCancelled)
+							{
+								logger.LogInformation("Sending Aborted");
+								await Clients.Client(session.SenderConnectionId).SendAsync(ServerConstants.FileHub.SendingAborted);
+							}
 						}
 					}
 				}
 			}
 		}
 
-		public async IAsyncEnumerable<byte[]> ReceiveFile(Guid fileId, [EnumeratorCancellation] CancellationToken cancellationToken)
+		public async IAsyncEnumerable<byte[]> ReceiveFile(Guid fileId, bool isLast, [EnumeratorCancellation] CancellationToken cancellationToken)
 		{
 			var session = await sessionManager.GetByReceiverConnectionIdAsync(Context.ConnectionId);
 
-			if (session is not null && session.FileChannels.TryGetValue(fileId, out var channel))
+			logger.LogInformation("Receive file for {ReceiverConnectionId}", session?.ReceiverConnectionId);
+
+			Channel<byte[]>? channel = null;
+
+			if (session is not null && !session.FileChannels.TryGetValue(fileId, out channel))
 			{
+				//var channel = Channel.CreateBounded<byte[]>(20);
+				channel = Channel.CreateUnbounded<byte[]>();
+
+				if (!session.FileChannels.TryAdd(fileId, channel))
+				{
+					session.FileChannels.TryGetValue(fileId, out channel);
+				}
+			}
+
+			if (session is not null && channel is not null)
+			{
+				using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.CancellationTokenSource.Token);
 				byte[]? result = null;
 				bool hasResult = true;
 				Exception? exception = null;
+				bool receiverCancelled = false;
 				while (hasResult)
 				{
 					try
 					{
-						await channel.Reader.WaitToReadAsync(cancellationToken);
+						await channel.Reader.WaitToReadAsync(linkedTokenSource.Token);
 						hasResult = channel.Reader.TryRead(out result);
 					}
 					catch (OperationCanceledException ex) when (Context.ConnectionAborted.IsCancellationRequested)
@@ -145,10 +162,11 @@ namespace Server.Hubs
 						exception = ex;
 						break;
 					}
-					catch (OperationCanceledException ex)
+					catch (OperationCanceledException ex) when (!session.CancellationTokenSource.IsCancellationRequested)
 					{
 						logger.LogError(ex, "Receiving cancelled");
 						await Clients.Client(session.SenderConnectionId).SendAsync(ServerConstants.FileHub.ReceivingCancelled);
+						receiverCancelled = true;
 						exception = ex;
 						break;
 					}
@@ -160,11 +178,21 @@ namespace Server.Hubs
 					}
 					finally
 					{
-						if (exception is not null)
+						if (exception is not null || isLast)
 						{
 							// we need to stop writing when receiver stopped reading or exception occurred
-							channel.Writer.TryComplete(exception);
-							// close session if exception occurred
+							if (exception is not null)
+							{
+								channel.Writer.TryComplete(exception);
+
+								if (!receiverCancelled)
+								{
+									logger.LogInformation("Receiving Aborted");
+									await Clients.Client(session.ReceiverConnectionId).SendAsync(ServerConstants.FileHub.ReceivingAborted);
+								}
+							}
+
+							// close session if exception occurred or the last file was transferred
 							await sessionManager.RemoveByReceiverAsync(Context.ConnectionId);
 						}
 					}
@@ -174,22 +202,6 @@ namespace Server.Hubs
 						yield return result;
 					}
 				}
-			}
-		}
-
-		public async Task CancelReceiving(long senderSessionId)
-		{
-			if (connectionManager.GetBySessionId(senderSessionId) is string senderConnectionId)
-			{
-				await Clients.Client(senderConnectionId).SendAsync(ServerConstants.FileHub.CancelSending);
-
-				LogReceivingStopped(senderConnectionId, senderSessionId);
-
-				await sessionManager.RemoveByReceiverAsync(Context.ConnectionId);
-
-				logger.LogInformation(
-					"SESSION DELETED: sender: {SenderConnectionId}, receiver {ReceiverConnectionId}",
-					Context.ConnectionId, senderConnectionId);
 			}
 		}
 

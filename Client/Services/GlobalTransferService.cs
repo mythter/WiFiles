@@ -15,14 +15,21 @@ namespace Client.Services
 	{
 		private readonly IStorageService _storageService;
 
+		private readonly IDeviceService _deviceService;
+
 		private readonly ILogger<GlobalTransferService> _logger;
 
-		private readonly HubConnection _connection;
+		private readonly IConfiguration _configuration;
 
-		private CancellationTokenSource? ConnectTokenSource { get; set; }
+		private HubConnection _connection;
+
+		private string? _serverUrl;
+
 		private CancellationTokenSource? SendRequestTokenSource { get; set; }
 		private CancellationTokenSource? SendTokenSource { get; set; }
 		private CancellationTokenSource? ReceiveTokenSource { get; set; }
+
+		private GlobalRequestModel? SendRequest { get; set; }
 
 		private List<FileModel> FilesToSend { get; set; } = [];
 
@@ -42,15 +49,20 @@ namespace Client.Services
 
 		public event EventHandler? SendingStarted;
 
-		public event EventHandler? SendingStopped;
+		public event EventHandler<long>? SessionIdDoesNotExist;
 
 		public event EventHandler<FileTransferModel>? ReceivingFileStarted;
 		public event EventHandler<FileTransferModel>? ReceivingFileEnded;
 		public event EventHandler<string>? ReceivingFileFailed;
 
+		public event EventHandler<FileTransferModel>? SendingFileStarted;
+		public event EventHandler<FileTransferModel>? SendingFileEnded;
+		public event EventHandler<string>? SendingFileFailed;
+
 		public event EventHandler? ReceivingStopped;
 		public event EventHandler? ReceivingFinishedSuccessfully;
 
+		public event EventHandler? SendingStopped;
 		public event EventHandler? SendingFinishedSuccessfully;
 
 		public event EventHandler? ReceivingCancelled;
@@ -63,62 +75,46 @@ namespace Client.Services
 
 		public GlobalTransferService(
 			IStorageService storageService,
+			IDeviceService deviceService,
 			IConfiguration configuration,
 			ILogger<GlobalTransferService> logger)
 		{
+			_deviceService = deviceService;
 			_storageService = storageService;
 			_logger = logger;
+			_configuration = configuration;
 
-			_connection = new HubConnectionBuilder()
-				.WithUrl(GetConnectionUrl(configuration))
-				.Build();
-
-			ListenConnection();
-			ListenRequests();
-			ListenFiles();
+			_connection = CreateHubConnection(GetConnectionUrl());
 		}
 
-		public async Task ConnectAsync()
+		public async Task ConnectAsync(string? serverUrl = null)
 		{
 			if (_connection.State != HubConnectionState.Disconnected)
 			{
 				return;
 			}
 
+			_serverUrl = serverUrl;
+			_connection = CreateHubConnection(GetConnectionUrl());
+
 			try
 			{
-				ConnectTokenSource = new CancellationTokenSource();
-
-				await _connection.StartAsync(ConnectTokenSource.Token);
+				await _connection.StartAsync();
 			}
-			catch (Exception ex)
+			catch (Exception)
 			{
-				_logger.LogError(ex, "Error while connecting to server hub");
-			}
-			finally
-			{
-				ConnectTokenSource?.Dispose();
-				ConnectTokenSource = null;
+				Disconnected?.Invoke(this, EventArgs.Empty);
+				throw;
 			}
 		}
 
 		public async Task DisconnectAsync()
 		{
-			switch (_connection.State)
-			{
-				case HubConnectionState.Connecting:
-				case HubConnectionState.Reconnecting:
-					if (ConnectTokenSource is not null)
-					{
-						await ConnectTokenSource.CancelAsync();
-					}
-					break;
-				case HubConnectionState.Connected:
-					await _connection.StopAsync();
-					break;
-				default:
-					return;
-			}
+			await _connection.StopAsync();
+			await _connection.DisposeAsync();
+
+			_serverUrl = null;
+			SessionId = 0;
 		}
 
 		public async Task StartSendingAsync(long receiverSessionId, List<FileModel> files)
@@ -160,27 +156,24 @@ namespace Client.Services
 		public void ResetReceiving()
 		{
 			IsReceiving = false;
-			SessionId = 0;
 
 			ReceiveTokenSource?.Cancel();
-			ReceiveTokenSource?.Dispose();
-			ReceiveTokenSource = null;
 		}
 
-		public async Task SendRequestAsync(long receiverSessionId, List<FileModel> files, CancellationToken cancellationToken = default)
+		private async Task SendRequestAsync(long receiverSessionId, List<FileModel> files, CancellationToken cancellationToken = default)
 		{
 			try
 			{
 				SendRequestTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-				List<FileMetadata> filesMetadata = files
+				var filesMetadata = files
 					.Select(f => new FileMetadata(Path.GetFileName(f.Path), f.Size))
 					.ToList();
 
 				var deviceModel = new GlobalDeviceModel(_deviceService.GetCurrentDeviceInfo());
 
-				var sendRequest = new GlobalRequestModel(SessionId, deviceModel, filesMetadata);
-				await _connection.InvokeAsync(ServerConstants.FileHub.SendRequest, receiverSessionId, sendRequest, cancellationToken);
+				SendRequest = new GlobalRequestModel(SessionId, deviceModel, filesMetadata);
+				await _connection.InvokeAsync(ServerConstants.FileHub.SendRequest, receiverSessionId, SendRequest, cancellationToken);
 			}
 			catch (Exception ex)
 			{
@@ -194,11 +187,26 @@ namespace Client.Services
 			}
 		}
 
+		public HubConnection CreateHubConnection(string url)
+		{
+			ArgumentNullException.ThrowIfNullOrWhiteSpace(url);
+
+			var connection = new HubConnectionBuilder()
+				.WithUrl(url)
+				.Build();
+
+			ListenConnection(connection);
+			ListenRequests(connection);
+			ListenFiles(connection);
+
+			return connection;
+		}
+
 		private void ResetSending()
 		{
 			IsSending = false;
 			ReceiverId = 0;
-			SessionId = 0;
+			SendRequest = null;
 			FilesToSend.Clear();
 
 			SendRequestTokenSource?.Cancel();
@@ -211,6 +219,7 @@ namespace Client.Services
 		private Task OnConnectionClosed(Exception? ex)
 		{
 			SessionId = 0;
+			_serverUrl = null;
 
 			StopSending();
 
@@ -235,20 +244,59 @@ namespace Client.Services
 			{
 				accepted = await OnSendFilesRequest(request);
 			}
+
 			IsReceiving = accepted;
-			await _connection.InvokeAsync(ServerConstants.FileHub.SendResponse, request.SenderSessionId, accepted);
+
+			var response = new GlobalResponseModel(_deviceService.GetCurrentDeviceInfo().ToString(), accepted);
+			await _connection.InvokeAsync(ServerConstants.FileHub.SendResponse, request.SenderSessionId, response);
+
+			if (!accepted) return;
+
+			ReceiveTokenSource = new CancellationTokenSource();
+
+			try
+			{
+				await ReceiveFiles(request, ReceiveTokenSource.Token);
+
+				ReceivingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error while receiving the files");
+			}
+			finally
+			{
+				ReceiveTokenSource.Dispose();
+				ReceiveTokenSource = null;
+
+				StopReceiving();
+			}
 		}
 
-		private async Task OnReceiveResponse(bool accepted)
+		private async Task OnReceiveResponse(GlobalResponseModel response)
 		{
 			if (!IsSending)
 			{
+				await _connection.SendAsync(ServerConstants.FileHub.CancelSending);
 				return;
 			}
 
-			if (accepted && FilesToSend.Count > 0)
+			if (response.IsAccepted && FilesToSend.Count == SendRequest?.Files.Count)
 			{
-				await SendFilesAsync(FilesToSend);
+				SendTokenSource = new CancellationTokenSource();
+
+				// don't block the flow so that we can receive messages from the server while streaming
+				_ = Task.Run(async () =>
+				{
+					try
+					{
+						await SendFilesAsync(FilesToSend, SendRequest.Files, response.ReceiverName, SendTokenSource.Token);
+					}
+					finally
+					{
+						StopSending();
+					}
+				}, SendTokenSource.Token);
 			}
 			else
 			{
@@ -256,94 +304,98 @@ namespace Client.Services
 			}
 		}
 
-		private async Task SendFilesAsync(List<FileModel> files, CancellationToken cancellationToken = default)
+		private async Task SendFilesAsync(List<FileModel> files, List<FileMetadata> filesMetadata, string receiverName, CancellationToken cancellationToken = default)
 		{
-			try
+			foreach (var fileData in files.Zip(filesMetadata, static (f, meta) => (File: f, meta.FileId)))
 			{
-				SendTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-				for (int i = 0; i < files.Count; i++)
+				FileTransferModel file = new(fileData.File, TransferType.Global)
 				{
-					var fileMetadata = new FileMetadata(Path.GetFileName(files[i].Path), files[i].Size);
-					var fileId = Guid.NewGuid();
-					var isLast = i == (files.Count - 1);
-					await _connection.SendAsync(ServerConstants.FileHub.StartSendingFile, ReceiverId, fileMetadata, fileId, isLast);
+					Status = TransferStatus.InProgress,
+					Receiver = receiverName
+				};
 
-					// if last file send transfer finished event
-					Action? callback = isLast ? OnSendingFilesFinished : null;
+				try
+				{
+					SendingFileStarted?.Invoke(this, file);
 
-					IAsyncEnumerable<byte[]> fileStream = GenerateFileStream(files[i], callback, SendTokenSource.Token);
-					await _connection.SendAsync(ServerConstants.FileHub.SendFile, ReceiverId, fileStream, fileId, isLast);
+					await SendFileAsync(file, fileData.FileId, cancellationToken);
+
+					file.Status = TransferStatus.Finished;
+					SendingFileEnded?.Invoke(this, file);
+
 				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error while sending the request");
-				StopSending();
-			}
-		}
+				catch (Exception)
+				{
+					file.Status = TransferStatus.Failed;
+					SendingFileFailed?.Invoke(this, fileData.File.Path);
+					throw;
+				}
 
-		private void OnSendingFilesFinished()
-		{
-			ResetSending();
+			}
+
 			SendingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
 		}
 
-		private async Task OnStartReceivingFile(FileMetadata fileMetadata, Guid fileId, bool isLast)
+		private async Task SendFileAsync(FileTransferModel file, Guid fileId, CancellationToken cancellationToken = default)
 		{
-			string filePath = FileHelper.GetUniqueFilePath(fileMetadata.Name, _storageService.SaveFolder);
-			FileModel file = new(filePath, fileMetadata.Size)
+			var tcs = new TaskCompletionSource();
+			IAsyncEnumerable<byte[]> fileStream = GenerateFileStream(file, tcs.SetResult, cancellationToken);
+
+			await _connection.SendAsync(ServerConstants.FileHub.SendFile, ReceiverId, fileStream, fileId);
+			await tcs.Task;
+		}
+
+		private async Task ReceiveFiles(GlobalRequestModel request, CancellationToken cancellationToken = default)
+		{
+			for (int i = 0; i < request.Files.Count; i++)
 			{
-				Status = TransferStatus.InProgress
-			};
-
-			bool exceptionThrown = false;
-			try
-			{
-				using FileStream fs = new(filePath, FileMode.Create, FileAccess.Write);
-				ReceivingFileStarted?.Invoke(this, file);
-
-				ReceiveTokenSource ??= new CancellationTokenSource();
-				var fileStream = _connection.StreamAsync<byte[]>(ServerConstants.FileHub.ReceiveFile, fileId, ReceiveTokenSource.Token);
-
-				await foreach (var chunk in fileStream)
+				string filePath = FileHelper.GetUniqueFilePath(request.Files[i].Name, _storageService.SaveFolder);
+				FileTransferModel fileTransferModel = new(filePath, request.Files[i].Size, TransferType.Global)
 				{
-					await fs.WriteAsync(chunk.AsMemory(0, chunk.Length));
-					file.CurrentProgress += chunk.Length;
+					Status = TransferStatus.InProgress,
+					Sender = request.Sender.ToString()
+				};
+
+				try
+				{
+					ReceivingFileStarted?.Invoke(this, fileTransferModel);
+
+					await ReceiveFile(fileTransferModel, request.Files[i].FileId, i == (request.Files.Count - 1), cancellationToken);
+
+					ReceivingFileEnded?.Invoke(this, fileTransferModel);
 				}
-
-				file.Status = file.CurrentProgress == fileMetadata.Size
-					? TransferStatus.Finished
-					: throw new TransferException($"The {fileMetadata.Name} file data was not received completely");
-			}
-			catch (Exception ex)
-			{
-				exceptionThrown = true;
-				_logger.LogError(ex, "Error while receiving the file");
-			}
-			finally
-			{
-				if (exceptionThrown)
+				catch (Exception)
 				{
-					file.Status = TransferStatus.Failed;
+					fileTransferModel.Status = TransferStatus.Failed;
 					HandleFailedFile(filePath);
-					StopReceiving();
-				}
-				else if (isLast)
-				{
-					ResetReceiving();
-					ReceivingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
+					throw;
 				}
 			}
 		}
 
-		private static async IAsyncEnumerable<byte[]> GenerateFileStream(FileModel file, Action? fileSentCallback, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+		private async Task ReceiveFile(FileTransferModel file, Guid fileId, bool isLast, CancellationToken cancellationToken = default)
 		{
-			byte[] buffer;
+			using FileStream fs = new(file.Path, FileMode.Create, FileAccess.Write);
+
+			var fileStream = _connection.StreamAsync<byte[]>(ServerConstants.FileHub.ReceiveFile, fileId, isLast, cancellationToken);
+
+			await foreach (var chunk in fileStream)
+			{
+				await fs.WriteAsync(chunk.AsMemory(0, chunk.Length));
+				file.CurrentProgress += chunk.Length;
+			}
+
+			file.Status = file.CurrentProgress == file.Size
+				? TransferStatus.Finished
+				: throw new TransferException($"The {Path.GetFileName(file.Path)} file data was not received completely");
+		}
+
+		private static async IAsyncEnumerable<byte[]> GenerateFileStream(FileTransferModel file, Action? fileSentCallback, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+		{
 			int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
 			using FileStream fs = new(file.Path, FileMode.Open, FileAccess.Read);
 			long size = fs.Length < bufferSize ? fs.Length : bufferSize;
-			buffer = new byte[size];
+			byte[] buffer = new byte[size];
 			int bytesRead;
 			while ((bytesRead = await fs.ReadAsync(buffer, CancellationToken.None)) > 0)
 			{
@@ -354,6 +406,8 @@ namespace Client.Services
 					Array.Resize(ref buffer, bytesRead);
 				}
 				yield return buffer;
+
+				file.CurrentProgress += bytesRead;
 			}
 
 			if (fileSentCallback is not null && !cancellationToken.IsCancellationRequested)
@@ -368,10 +422,10 @@ namespace Client.Services
 			ReceivingFileFailed?.Invoke(this, filePath);
 		}
 
-		private static string GetConnectionUrl(IConfiguration configuration)
+		private string GetConnectionUrl()
 		{
-			Uri baseUrl = new(configuration.GetValue<string>(Constants.Config.Server.BASE_URL_PATH) ?? "");
-			string fileHubUrl = configuration.GetValue<string>(Constants.Config.Server.FILE_HUB_PATH) ?? "";
+			Uri baseUrl = new(_serverUrl ?? _configuration.GetValue<string>(Constants.Config.Server.BASE_URL_PATH) ?? "");
+			string fileHubUrl = _configuration.GetValue<string>(Constants.Config.Server.FILE_HUB_PATH) ?? "";
 			return new Uri(baseUrl, fileHubUrl).AbsoluteUri;
 		}
 
@@ -383,35 +437,44 @@ namespace Client.Services
 			}
 		}
 
-		private void ListenConnection()
+		private void ListenConnection(HubConnection connection)
 		{
-			_connection.On<long>(ServerConstants.FileHub.HubConnected, OnConnected);
+			connection.On<long>(ServerConstants.FileHub.HubConnected, OnConnected);
 
-			_connection.On(ServerConstants.FileHub.ReceiverDisconnected, OnReceiverDisconnected);
-			_connection.On(ServerConstants.FileHub.ReceiverDisconnected, StopSending);
+			connection.On(ServerConstants.FileHub.ReceiverDisconnected, OnReceiverDisconnected);
+			connection.On(ServerConstants.FileHub.ReceiverDisconnected, StopSending);
 
-			_connection.On(ServerConstants.FileHub.SenderDisconnected, OnSenderDisconnected);
-			_connection.On(ServerConstants.FileHub.SenderDisconnected, StopReceiving);
+			connection.On(ServerConstants.FileHub.SenderDisconnected, OnSenderDisconnected);
+			connection.On(ServerConstants.FileHub.SenderDisconnected, StopReceiving);
 
-			_connection.Closed += OnConnectionClosed;
+			connection.Closed += OnConnectionClosed;
 		}
 
-		private void ListenRequests()
+		private void ListenRequests(HubConnection connection)
 		{
-			_connection.On<GlobalRequestModel>(ServerConstants.FileHub.ReceiveRequest, OnReceiveRequest);
+			connection.On<GlobalRequestModel>(ServerConstants.FileHub.ReceiveRequest, OnReceiveRequest);
 
-			_connection.On<bool>(ServerConstants.FileHub.ReceiveResponse, OnReceiveResponse);
+			connection.On<GlobalResponseModel>(ServerConstants.FileHub.ReceiveResponse, OnReceiveResponse);
+
+			connection.On<long>(ServerConstants.FileHub.SessionIdDoesNotExist, OnSessionIdDoesNotExist);
 		}
 
-		private void ListenFiles()
+		private void ListenFiles(HubConnection connection)
 		{
-			_connection.On<FileMetadata, Guid, bool>(ServerConstants.FileHub.StartReceivingFile, OnStartReceivingFile);
+			//connection.On<FileMetadata, Guid, bool>(ServerConstants.FileHub.StartReceivingFile, OnStartReceivingFile);
 
-			_connection.On(ServerConstants.FileHub.ReceivingCancelled, OnReceivingCancelled);
-			_connection.On(ServerConstants.FileHub.ReceivingCancelled, StopSending);
+			connection.On(ServerConstants.FileHub.ReceivingCancelled, OnReceivingCancelled);
 
-			_connection.On(ServerConstants.FileHub.SendingCancelled, OnSendingCancelled);
-			_connection.On(ServerConstants.FileHub.SendingCancelled, StopReceiving);
+			connection.On(ServerConstants.FileHub.SendingCancelled, OnSendingCancelled);
+
+			connection.On(ServerConstants.FileHub.SendingAborted, StopReceiving);
+			connection.On(ServerConstants.FileHub.ReceivingAborted, StopSending);
+		}
+
+		private void OnSessionIdDoesNotExist(long sessionId)
+		{
+			StopSending();
+			SessionIdDoesNotExist?.Invoke(this, sessionId);
 		}
 
 		private void OnReceiverDisconnected()
@@ -426,12 +489,17 @@ namespace Client.Services
 
 		private void OnReceivingCancelled()
 		{
-			ReceivingCancelled?.Invoke(this, EventArgs.Empty);
+			if (IsSending)
+			{
+				StopSending();
+				ReceivingCancelled?.Invoke(this, EventArgs.Empty);
+			}
 		}
-		
+
 		private void OnSendingCancelled()
 		{
 			SendingCancelled?.Invoke(this, EventArgs.Empty);
+			StopReceiving();
 		}
 
 		private void OnConnected(long sessionId)
@@ -442,23 +510,12 @@ namespace Client.Services
 
 		public async ValueTask DisposeAsync()
 		{
-			ConnectTokenSource?.Dispose();
 			SendRequestTokenSource?.Dispose();
 			SendTokenSource?.Dispose();
 			ReceiveTokenSource?.Dispose();
 
-			try
-			{
-				await _connection.StopAsync();
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error while stopping the connection");
-			}
-			finally
-			{
-				await _connection.DisposeAsync();
-			}
+			await _connection.StopAsync();
+			await _connection.DisposeAsync();
 		}
 	}
 }

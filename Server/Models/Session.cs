@@ -10,10 +10,13 @@ namespace Server.Models
 
 		public ConcurrentDictionary<Guid, Channel<byte[]>> FileChannels { get; } = new();
 
+		public CancellationTokenSource CancellationTokenSource { get; }
+
 		public Session(string senderid, string receiverId)
 		{
 			SenderConnectionId = senderid;
 			ReceiverConnectionId = receiverId;
+			CancellationTokenSource = new CancellationTokenSource();
 		}
 
 		public override bool Equals(object? obj)
