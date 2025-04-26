@@ -17,6 +17,10 @@ namespace Server.Hubs
 
 				await Clients.Client(whomConnectionId).SendAsync(ServerConstants.FileHub.ReceiveRequest, request);
 			}
+			else
+			{
+				await Clients.Caller.SendAsync(ServerConstants.FileHub.SessionIdDoesNotExist, whomSessionId);
+		}
 		}
 
 		public async Task SendResponse(long whomSessionId, bool accepted)

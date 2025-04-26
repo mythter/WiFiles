@@ -33,6 +33,8 @@
 			public const string SendingCancelled = "SendingCancelled";
 
 			public const string ReceivingCancelled = "ReceivingCancelled";
+
+			public const string SessionIdDoesNotExist = "SessionIdDoesNotExist";
 		}
 	}
 }
