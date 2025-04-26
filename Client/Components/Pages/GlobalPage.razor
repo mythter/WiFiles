@@ -82,8 +82,7 @@
 			</RectangleRealButton>
 		</div>
 
-		<RectangleRealButton
-		IsDisabled="gts.ConnectionState != HubConnectionState.Connected"
+		<RectangleRealButton IsDisabled="gts.ConnectionState != HubConnectionState.Connected"
 		CornerRadius="5" 
 		OnClick="OnSendClick">@SendButtonText</RectangleRealButton>
 	</div>
@@ -119,12 +118,12 @@
 		if (gts.IsSending)
 		{
 			ReceiverId = gts.ReceiverId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate);
-			await localStorage.SetItemAsync<string>(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+			await localStorage.SetItemAsync(LocalStorageConstants.ReceiverIdKey, ReceiverId);
 		}
 		else if (await localStorage.ContainKeyAsync(LocalStorageConstants.ReceiverIdKey))
 		{
-			ReceiverId = await localStorage.GetItemAsync<string>(LocalStorageConstants.ReceiverIdKey) ?? "";
-			await localStorage.SetItemAsync<string>(LocalStorageConstants.ReceiverIdKey, ReceiverId);
+			ReceiverId = await localStorage.GetItemAsync<string>(LocalStorageConstants.ReceiverIdKey);
+			await localStorage.SetItemAsync(LocalStorageConstants.ReceiverIdKey, ReceiverId);
 		}
 	}
 
@@ -232,7 +231,7 @@
 				return;
 			}
 
-			await gts.StartSendingAsync(receiverId, StorageService.SendFiles.ToList());
+			await gts.StartSendingAsync(receiverId, StorageService.SelectedFiles.ToList());
 		}
 		else
 		{
