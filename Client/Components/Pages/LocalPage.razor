@@ -24,11 +24,14 @@
 		<i class="ph ph-files"></i>
 	</BadgeButton>
 
-	<RealButton Class="left" OnClick="@RefreshIps">
+	<RealButton Class="left" OnClick="@RefreshIPs">
 		<i class="ph ph-arrows-clockwise"></i>
 	</RealButton>
 	<RealToggleButton IsChecked="@Listening" OnClick="@(() => Listening ? StopListening() : StartListening())">
 		@if (Listening)
+	<RealToggleButton IsChecked="TransferService.IsListening"
+					  OnClick="@(() => TransferService.IsListening ? StopListening() : StartListening())">
+		@if (TransferService.IsListening)
 		{
 			<i class="ph ph-ear"></i>
 		}
@@ -42,10 +45,10 @@
 <div class="main">
 	<div class="container">
 		<div class="top-panel">
-			<select class="select" @bind="SelectedIp" @bind:after="IpChanged">
+			<select class="select" @bind="SelectedIP" @bind:after="RefreshIPs">
 				@foreach (var ip in NetworkInterfaceIPs)
 				{
-					<option value="@ip" selected="@(ip.ToString() == SelectedIp)">@ip.ToString()</option>
+					<option value="@ip" selected="@(ip.ToString() == SelectedIP)">@ip.ToString()</option>
 				}
 			</select>
 		</div>
@@ -60,14 +63,7 @@
 		</div>
 
 		<div class="message">
-			@if (GettingNetworkInterfaces)
-			{
-				@("Getting info about network interfaces...")
-			}
-			else if (NetworkInterfaceIPs.Count == 0)
-			{
-				@("Could not find interfaces with default gateway")
-			}
+			@Message
 		</div>
 
 	</div>
@@ -78,42 +74,44 @@
 
 	public List<IPAddress> Gateways { get; set; } = new();
 
-	public List<IPAddress> LocalIPs { get; set; } = new();
-
 	public List<LocalDeviceModel> Devices { get; set; } = new();
 
-	public string SelectedIp { get; set; } = null!;
+	public string? SelectedIP { get; set; }
+
+	public string? Message { get; set; }
 
 	public bool Loading { get; set; }
 
 	public bool Listening { get; set; }
-
-	public bool GettingNetworkInterfaces { get; set; }
-
-	IJSObjectReference jsModule = null!;
 
 	[CascadingParameter(Name = "MessageBox")]
 	private MessageBox MessageBoxElement { get; set; } = null!;
 
 	protected override async Task OnInitializedAsync()
 	{
-		Listening = TransferService.IsListening;
-
-		TransferService.ListeningStarted += ListeningStarted;
-		TransferService.ListeningStopped += ListeningStopped;
+		TransferService.ListeningStarted += UpdateState;
+		TransferService.ListeningStopped += UpdateState;
 
 		lns.DeviceFound += OnDeviceFound;
 
-		GettingNetworkInterfaces = true;
+		Message = "Getting active network interfaces...";
+
 		await Task.Run(() =>
 		{
 			NetworkInterfaceIPs = nis.GetNetworkInterfaceIPAddresses();
-			SelectedIp = NetworkInterfaceIPs.First().ToString();
+			SelectedIP = NetworkInterfaceIPs.FirstOrDefault()?.ToString();
 		});
-		GettingNetworkInterfaces = false;
+
+		Message = NetworkInterfaceIPs.Count == 0
+			? "Could not find active network interfaces"
+			: null;
+
 		StateHasChanged();
 
-		_ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
+		if (SelectedIP is not null)
+		{
+			_ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIP));
+	}
 	}
 
 	private void OnDeviceFound(object? sender, LocalDeviceModel device)
@@ -125,17 +123,14 @@
 		}
 	}
 
-	private async Task IpChanged()
+	private async Task RefreshIPs()
 	{
-		IPAddress ip = IPAddress.Parse(SelectedIp);
-		await RefreshIps();
-	}
-
-	private async Task RefreshIps()
-	{
-		LocalIPs.Clear();
 		Devices.Clear();
-		await lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIp));
+
+		if (IPAddress.TryParse(SelectedIP, out var ip))
+	{
+			await lns.StartMulticastScanAsync(ip);
+	}
 	}
 
 	private async Task StartListening()
@@ -158,28 +153,25 @@
 
 	private async Task StartSending(IPAddress ip)
 	{
-		if (StorageService.SendFiles.Count == 0)
+		if (StorageService.SelectedFiles.Count == 0)
 		{
 			MessageBoxElement.ShowWarning("You have no files to send.");
 			return;
 		}
 
-		await TransferService.StartSendingAsync(ip, new List<FileModel>(StorageService.SendFiles));
+		await TransferService.StartSendingAsync(ip, new List<FileModel>(StorageService.SelectedFiles));
 	}
 
-	private void ListeningStarted(object? sender, EventArgs e)
+	private void UpdateState(object? sender, EventArgs e)
 	{
-		Listening = true;
-	}
-
-	private void ListeningStopped(object? sender, EventArgs e)
-	{
-		Listening = false;
+		InvokeAsync(StateHasChanged);
 	}
 
 	public void Dispose()
 	{
-		TransferService.ListeningStarted -= ListeningStarted;
-		TransferService.ListeningStopped -= ListeningStopped;
+		TransferService.ListeningStarted -= UpdateState;
+		TransferService.ListeningStopped -= UpdateState;
+
+		lns.DeviceFound -= OnDeviceFound;
 	}
 }
