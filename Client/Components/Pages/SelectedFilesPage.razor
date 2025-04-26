@@ -5,7 +5,8 @@
 @inject NavigationService NavigationService
 @inject ILocalStorageService localStorage
 @inject IStorageService StorageService
-@inject LocalTransferService TransferService
+@inject LocalTransferService lts
+@inject GlobalTransferService gts
 
 <Header>
 	<RealButton OnClick="@PickFiles">
@@ -53,7 +54,7 @@
 
 	private async Task PickFiles()
 	{
-		if (TransferService.ReceiverIp is not null)
+		if (lts.IsSending  || gts.IsSending)
 		{
 			MessageBoxElement.ShowWarning("You can't add files to list while sending in progress.");
 			return;
@@ -86,15 +87,14 @@
 				"Some files you selected cannot be read and hence cannot be sent:\n" +
 				notReadableFiles.ToString(),
 				"Files cannot be read");
-			return;
 		}
 	}
 
 	private async Task RemoveFiles(bool removeAll = false)
 	{
-		if (TransferService.ReceiverIp is not null)
+		if (lts.IsSending || gts.IsSending)
 		{
-			MessageBoxElement.ShowWarning("You can't delete files from list while sending in progress.");
+			MessageBoxElement.ShowWarning("You can't remove files from list while sending in progress.");
 			return;
 		}
 

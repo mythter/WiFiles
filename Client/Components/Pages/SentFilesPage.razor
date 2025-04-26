@@ -5,20 +5,24 @@
 @inject NavigationService NavigationService
 @inject ILocalStorageService localStorage
 @inject IStorageService StorageService
-@inject LocalTransferService TransferService
+@inject LocalTransferService lts
+@inject GlobalTransferService gts
 
 <Header>
-	@if (SelectedFiles.Count > 0)
+	@if (!lts.IsSending && !gts.IsSending)
 	{
-		<BadgeButton OnClick="@(async () => await RemoveFiles())" Count="SelectedFiles.Count">
-			<i class="ph ph-trash"></i>
-		</BadgeButton>
-	}
-	else if (StorageService.SentFiles.Count > 0)
-	{
-		<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
-			<i class="ph ph-broom"></i>
-		</RealButton>
+		@if (SelectedFiles.Count > 0)
+		{
+			<BadgeButton OnClick="@(async () => await RemoveFiles())" Count="SelectedFiles.Count">
+				<i class="ph ph-trash"></i>
+			</BadgeButton>
+		}
+		else if (StorageService.SentFiles.Count > 0)
+		{
+			<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
+				<i class="ph ph-broom"></i>
+			</RealButton>
+		}
 	}
 	<RealButton Class="transparent left" OnClick="NavigationService.NavigateBack">
 		<i class="ph ph-arrow-left"></i>
@@ -50,12 +54,6 @@
 
 	private async Task RemoveFiles(bool removeAll = false)
 	{
-		if (TransferService.ReceiverIp is not null)
-		{
-			MessageBoxElement.ShowWarning("You can't delete files from list while sending in progress.");
-			return;
-		}
-
 		if (removeAll)
 		{
 			StorageService.SentFiles.Clear();

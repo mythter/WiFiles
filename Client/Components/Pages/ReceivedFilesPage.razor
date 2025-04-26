@@ -14,17 +14,20 @@
 	<RealButton OnClick="@PickFolder">
 		<i class="ph ph-folder-notch"></i>
 	</RealButton>
-	@if (SelectedFiles.Count > 0)
+	@if (!lts.IsReceiving && !gts.IsReceiving)
 	{
-		<BadgeButton OnClick="@(async () => await RemoveFiles())" Count="SelectedFiles.Count">
-			<i class="ph ph-trash"></i>
-		</BadgeButton>
-	}
-	else if (StorageService.ReceivedFiles.Count > 0)
-	{
-		<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
-			<i class="ph ph-broom"></i>
-		</RealButton>
+		@if (SelectedFiles.Count > 0)
+		{
+			<BadgeButton OnClick="@(async () => await RemoveFiles())" Count="SelectedFiles.Count">
+				<i class="ph ph-trash"></i>
+			</BadgeButton>
+		}
+		else if (StorageService.ReceivedFiles.Count > 0)
+		{
+			<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
+				<i class="ph ph-broom"></i>
+			</RealButton>
+		}
 	}
 	@if (lts.IsReceiving || gts.IsReceiving)
 	{
