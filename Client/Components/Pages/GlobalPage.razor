@@ -25,8 +25,8 @@
 	</BadgeButton>
 
 	<RealToggleButton Class="@($"left {ConnectionButtonClass}")"
-	IsChecked="gts.ConnectionState == HubConnectionState.Connected"
-	OnClick="@(() => gts.ConnectionState != HubConnectionState.Disconnected ? DisconnetFromServer() : ConnectToServer())">
+					  IsChecked="gts.ConnectionState == HubConnectionState.Connected"
+					  OnClick="@(() => gts.ConnectionState != HubConnectionState.Disconnected ? DisconnetFromServer() : ConnectToServer())">
 		<i class="ph ph-power"></i>
 	</RealToggleButton>
 </Header>
@@ -49,42 +49,42 @@
 		<div class="field">
 
 			<Input CornerRadius="5"
-			Text="@gts.SessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)"
-			IsDisabled=true
-			Pattern="__ ___ ___ ___"
-			FontSize="30px"
-			IsMono=true
-			MaxLength="14"
-			TextAlign="center" />
+				   Text="@gts.SessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)"
+				   IsDisabled=true
+				   Pattern="__ ___ ___ ___"
+				   FontSize="30px"
+				   IsMono=true
+				   MaxLength="14"
+				   TextAlign="center" />
 			<RectangleRealButton CornerRadius="5"
-			Width="35px"
-			Height="35px"
-			OnClick="@(async () => await jsModule.InvokeVoidAsync("ClipboardHelper.CopyToClipboard", gts.SessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)))">
+								 Width="35px"
+								 Height="35px"
+								 OnClick="@(async () => await jsModule.InvokeVoidAsync("ClipboardHelper.CopyToClipboard", gts.SessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)))">
 				<i class="ph ph-copy"></i>
 			</RectangleRealButton>
 		</div>
 		<i class="ph ph-arrow-down icon"></i>
 		<div class="field">
 			<Input CornerRadius="5"
-			Text="@ReceiverId"
-			Placeholder="Receiver ID"
-			Pattern="__ ___ ___ ___"
-			FontSize="30px"
-			TextAlign="center"
-			IsMono=true
-			MaxLength="14"
-			OnTextChanged="OnReceiverIdChange" />
+				   Text="@ReceiverId"
+				   Placeholder="Receiver ID"
+				   Pattern="__ ___ ___ ___"
+				   FontSize="30px"
+				   TextAlign="center"
+				   IsMono=true
+				   MaxLength="14"
+				   OnTextChanged="OnReceiverIdChange" />
 			<RectangleRealButton CornerRadius="5"
-			Width="35px"
-			Height="35px"
+								 Width="35px"
+								 Height="35px"
 								 OnClick="PasteReceiverId">
 				<i class="ph ph-pen"></i>
 			</RectangleRealButton>
 		</div>
 
 		<RectangleRealButton IsDisabled="gts.ConnectionState != HubConnectionState.Connected"
-		CornerRadius="5" 
-		OnClick="OnSendClick">@SendButtonText</RectangleRealButton>
+							 CornerRadius="5"
+							 OnClick="OnSendClick">@SendButtonText</RectangleRealButton>
 	</div>
 </div>
 
@@ -168,9 +168,9 @@
 
 			if (IsSessionId && clipboardText is not null)
 			{
-			string numbers = new string(clipboardText.Where(c => char.IsDigit(c)).Take(11).ToArray());
-			if (long.TryParse(numbers, out long value))
-			{
+				string numbers = new string(clipboardText.Where(c => char.IsDigit(c)).Take(11).ToArray());
+				if (long.TryParse(numbers, out long value))
+				{
 					var receiverId = value.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate);
 					return receiverId;
 				}
@@ -196,7 +196,16 @@
 
 	private async Task ConnectToServer()
 	{
-	   await gts.ConnectAsync();
+		try
+		{
+			await gts.ConnectAsync(ServerUrl);
+		}
+		catch (Exception ex) when (ex is not OperationCanceledException)
+		{
+			logger.LogError(ex, "Error occured while connecting to the server.");
+
+			MessageBoxElement.ShowError("Cannot connect to the server.");
+		}
 	}
 
 	private async Task DisconnetFromServer()
