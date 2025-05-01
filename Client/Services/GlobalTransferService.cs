@@ -306,14 +306,14 @@ namespace Client.Services
 			}
 		}
 
-		private async Task SendFilesAsync(List<FileModel> files, List<FileMetadata> filesMetadata, string receiverName, CancellationToken cancellationToken = default)
+		private async Task SendFilesAsync(List<FileModel> files, List<FileMetadata> filesMetadata, DeviceModel receiver, CancellationToken cancellationToken = default)
 		{
 			foreach (var fileData in files.Zip(filesMetadata, static (f, meta) => (File: f, meta.FileId)))
 			{
 				FileTransferModel file = new(fileData.File, TransferType.Global)
 				{
 					Status = TransferStatus.InProgress,
-					Receiver = receiverName
+					Receiver = receiver
 				};
 
 				try
