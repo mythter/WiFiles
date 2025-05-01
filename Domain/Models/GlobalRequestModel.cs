@@ -2,27 +2,22 @@
 
 namespace Domain.Models
 {
-	public class GlobalRequestModel : RequestModel
+	public class GlobalRequestModel : RequestModel<GlobalDeviceModel>
 	{
 		public long SenderSessionId { get; set; }
 
 		public long ReceiverSessionId { get; set; }
 
-		public GlobalDeviceModel Sender { get; set; }
-
-		public GlobalRequestModel(long senderSessionId, long receiverSessionId, GlobalDeviceModel sender)
+		public GlobalRequestModel(long senderSessionId, long receiverSessionId, GlobalDeviceModel sender) : base (sender)
 		{
 			SenderSessionId = senderSessionId;
 			ReceiverSessionId = receiverSessionId;
-			Sender = sender;
 		}
 
 		[JsonConstructor]
 		public GlobalRequestModel(long senderSessionId, long receiverSessionId, GlobalDeviceModel sender, List<FileMetadata> files)
+			 : this(senderSessionId, receiverSessionId, sender)
 		{
-			SenderSessionId = senderSessionId;
-			ReceiverSessionId = receiverSessionId;
-			Sender = sender;
 			Files = files ?? [];
 		}
 	}

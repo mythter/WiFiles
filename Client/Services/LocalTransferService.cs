@@ -219,7 +219,7 @@ namespace Client.Services
 				FileTransferModel file = new(filePath, fileMetadata.Size, TransferType.Local)
 				{
 					Status = TransferStatus.InProgress,
-					Sender = sender
+					Sender = request.Sender
 				};
 
 				try

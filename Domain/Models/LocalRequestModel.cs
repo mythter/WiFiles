@@ -2,19 +2,15 @@
 
 namespace Domain.Models
 {
-	public class LocalRequestModel : RequestModel
+	public class LocalRequestModel : RequestModel<LocalDeviceModel>
 	{
-		public LocalDeviceModel Sender { get; set; }
-
-		public LocalRequestModel(LocalDeviceModel sender)
+		public LocalRequestModel(LocalDeviceModel sender) : base(sender) 
 		{
-			Sender = sender;
 		}
 
 		[JsonConstructor]
-		public LocalRequestModel(LocalDeviceModel sender, List<FileMetadata> files)
+		public LocalRequestModel(LocalDeviceModel sender, List<FileMetadata> files) : this(sender)
 		{
-			Sender = sender;
 			Files = files ?? [];
 		}
 	}

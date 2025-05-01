@@ -1,7 +1,14 @@
 ﻿namespace Domain.Models
 {
-	public class RequestModel
+	public class RequestModel<T> where T : DeviceModel
 	{
-		public List<FileMetadata> Files { get; set; } = new();
+		public T Sender { get; set; }
+
+		public List<FileMetadata> Files { get; set; } = [];
+
+		public RequestModel(T sender)
+	{
+			Sender = sender;
+		}
 	}
 }

@@ -243,8 +243,9 @@ namespace Client.Services
 			}
 
 			IsReceiving = accepted;
+			var deviceModel = new GlobalDeviceModel(_deviceService.GetCurrentDeviceInfo());
 
-			var response = new GlobalResponseModel(SessionId, request.SenderSessionId, _deviceService.GetCurrentDeviceInfo().ToString(), accepted);
+			var response = new GlobalResponseModel(accepted, deviceModel, SessionId, request.SenderSessionId);
 			await _connection.InvokeAsync(ServerConstants.FileHub.SendResponse, response);
 
 			if (!accepted) return;
@@ -352,7 +353,7 @@ namespace Client.Services
 				FileTransferModel fileTransferModel = new(filePath, request.Files[i].Size, TransferType.Global)
 				{
 					Status = TransferStatus.InProgress,
-					Sender = request.Sender.ToString()
+					Sender = request.Sender
 				};
 
 				try
