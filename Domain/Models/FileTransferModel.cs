@@ -5,7 +5,7 @@ namespace Domain.Models
 {
 	public class FileTransferModel : FileModel
 	{
-		public string? Sender { get; set; }
+		public DeviceModel? Sender { get; set; }
 		public string? Receiver { get; set; }
 		public TransferStatus Status { get; set; }
 		public TransferType TransferType { get; set; }
@@ -24,7 +24,7 @@ namespace Domain.Models
 		public event EventHandler<long>? ProgressChanged;
 
 		[JsonConstructor]
-		public FileTransferModel(string path, long size, TransferType transferType, string? sender = null, string? receiver = null)
+		public FileTransferModel(string path, long size, TransferType transferType, DeviceModel? sender = null, string? receiver = null)
 			: base(path, size)
 		{
 			TransferType = transferType;
@@ -32,7 +32,7 @@ namespace Domain.Models
 			Receiver = receiver;
 		}
 
-		public FileTransferModel(FileModel fileModel, TransferType transferType, string? sender = null, string? receiver = null)
+		public FileTransferModel(FileModel fileModel, TransferType transferType, DeviceModel? sender = null, string? receiver = null)
 			: this(
 				fileModel.Path, 
 				fileModel.Size, 
