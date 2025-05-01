@@ -2,21 +2,18 @@
 
 namespace Domain.Models
 {
-	public class GlobalResponseModel : ResponseModel
+	public class GlobalResponseModel : ResponseModel<GlobalDeviceModel>
 	{
-
 		public long ReceiverSessionId { get; set; }
 
 		public long SenderSessionId { get; set; }
 
-		public string ReceiverName { get; set; }
-
 		[JsonConstructor]
-		public GlobalResponseModel(long receiverSessionId, long senderSessionId, string receiverName, bool isAccepted) : base(isAccepted)
+		public GlobalResponseModel(bool isAccepted, GlobalDeviceModel receiver, long receiverSessionId, long senderSessionId)
+			: base(isAccepted, receiver)
 		{
 			ReceiverSessionId = receiverSessionId;
 			SenderSessionId = senderSessionId;
-			ReceiverName = receiverName;
 		}
 	}
 }

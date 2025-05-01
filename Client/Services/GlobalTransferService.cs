@@ -288,7 +288,7 @@ namespace Client.Services
 
 					try
 					{
-						await SendFilesAsync(FilesToSend, SendRequest.Files, response.ReceiverName, SendTokenSource.Token);
+						await SendFilesAsync(FilesToSend, SendRequest.Files, response.Receiver.ToString(), SendTokenSource.Token);
 					}
 					finally
 					{
