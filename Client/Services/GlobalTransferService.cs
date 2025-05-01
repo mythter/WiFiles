@@ -219,6 +219,7 @@ namespace Client.Services
 			_serverUrl = null;
 
 			StopSending();
+			StopReceiving();
 
 			if (ex is not null)
 			{
@@ -381,7 +382,7 @@ namespace Client.Services
 
 			await foreach (var chunk in fileStream)
 			{
-				await fs.WriteAsync(chunk.AsMemory(0, chunk.Length));
+				await fs.WriteAsync(chunk.AsMemory(0, chunk.Length), cancellationToken);
 				file.CurrentProgress += chunk.Length;
 			}
 

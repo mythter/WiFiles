@@ -158,7 +158,7 @@
 			return;
 		}
 
-		await TransferService.StartSendingAsync(ip, new List<FileModel>(StorageService.SelectedFiles));
+		await TransferService.StartSendingAsync(ip, StorageService.SelectedFiles.ToList(), UseEncryption);
 	}
 
 	private void UpdateState(object? sender, EventArgs e)

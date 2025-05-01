@@ -22,7 +22,7 @@ namespace Client.Services
 
 		public bool IsListening { get; private set; }
 		public bool IsReceiving { get; private set; }
-		public bool IsSending{ get; private set; }
+		public bool IsSending { get; private set; }
 
 		public int ReceiveTimeout { get; set; } = 15_000;
 		public int SendTimeout { get; set; } = 15_000;
