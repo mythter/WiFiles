@@ -1,5 +1,4 @@
 ﻿@using System.Net
-@using Blazored.LocalStorage
 @using Client.Constants
 @inherits LayoutComponentBase
 @inject NavigationService NavigationService
@@ -150,7 +149,7 @@
 		}
 	}
 
-	private Task<bool> ShowRequest(RequestModel request)
+	private Task<bool> ShowRequest<T>(RequestModel<T> request) where T: DeviceModel
 	{
 		if (request is LocalRequestModel localRequest)
 		{

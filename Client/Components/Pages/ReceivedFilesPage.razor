@@ -1,6 +1,5 @@
 ﻿@page "/received-files"
 @using System.Net
-@using Blazored.LocalStorage
 @using Client.Constants
 @inject NavigationService NavigationService
 @inject LocalTransferService lts
@@ -47,7 +46,7 @@
 		</div>
 	</div>
 	<div class="files">
-		@foreach (var file in StorageService.ReceivedFiles.Select((f, i) => new { File = f, Index = i }))
+		@foreach (var file in StorageService.ReceivedFiles.Select((f, i) => new { File = f, Index = i }).Reverse())
 		{
 			<FileTransferComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileTransferComponent>
 		}

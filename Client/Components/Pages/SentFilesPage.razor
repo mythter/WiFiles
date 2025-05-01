@@ -1,6 +1,5 @@
 ﻿@page "/sent-files"
 @using System.Text
-@using Blazored.LocalStorage
 @using Client.Constants
 @inject NavigationService NavigationService
 @inject ILocalStorageService localStorage
@@ -30,7 +29,7 @@
 </Header>
 
 <div class="files">
-	@foreach (var file in StorageService.SentFiles.Select((f, i) => new { File = f, Index = i }))
+	@foreach (var file in StorageService.SentFiles.Select((f, i) => new { File = f, Index = i }).Reverse())
 	{
 		<FileTransferComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileTransferComponent>
 	}
