@@ -8,6 +8,7 @@
 
 		public ResponseModel(bool isAccepted, T receiver)
 		{
+			IsAccepted = isAccepted;
 			Receiver = receiver;
 		}
 	}
