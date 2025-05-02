@@ -83,11 +83,11 @@ namespace Client.Services
 				await SendRequestAsync(files, stream, token);
 
 				// waiting for the response from the receiver
-				bool isAccepted = await stream.ReadBooleanAsync();
+				var response = await ReceiveResponseAsync(stream, ip, token);
 
-				if (isAccepted)
+				if (response.IsAccepted)
 				{
-					await SendFilesAsync(stream, files, ip, token);
+					await SendFilesAsync(stream, files, response.Receiver, token);
 
 					SendingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
 				}
@@ -163,14 +163,40 @@ namespace Client.Services
 			return request;
 		}
 
-		private async Task SendFilesAsync(NetworkStream stream, List<FileModel> files, IPAddress receiver, CancellationToken cancellationToken)
+		private async Task SendResponseAsync(NetworkStream stream, bool isAccepted, CancellationToken cancellationToken = default)
+		{
+			var localDevice = new LocalDeviceModel(_deviceService.GetCurrentDeviceInfo());
+			var response = new LocalResponseModel(isAccepted, localDevice);
+
+			string responseJson = JsonSerializer.Serialize(response);
+			byte[] responseBytes = Encoding.UTF8.GetBytes(responseJson);
+			byte[] responseSizeBytes = BitConverter.GetBytes(responseBytes.Length);
+
+			await stream.WriteWithTimeoutAsync(responseSizeBytes, SendTimeout, cancellationToken);
+			await stream.WriteWithTimeoutAsync(responseBytes, SendTimeout, cancellationToken);
+		}
+
+		private static async Task<LocalResponseModel> ReceiveResponseAsync(NetworkStream stream, IPAddress ip, CancellationToken cancellationToken = default)
+		{
+			var responseSize = await stream.ReadInt32Async(cancellationToken);
+			var responseJson = await stream.ReadStringAsync(responseSize, cancellationToken);
+
+			var response = JsonSerializer.Deserialize<LocalResponseModel>(responseJson)
+				?? throw new JsonException("Could not deserialize response.");
+
+			response.Receiver.IP = ip;
+
+			return response;
+		}
+
+		private async Task SendFilesAsync(NetworkStream stream, List<FileModel> files, LocalDeviceModel receiver, CancellationToken cancellationToken)
 		{
 			foreach (var fileModel in files)
 			{
 				FileTransferModel file = new(fileModel, TransferType.Local)
 				{
 					Status = TransferStatus.InProgress,
-					Receiver = receiver.ToString()
+					Receiver = receiver
 				};
 
 				try
@@ -334,7 +360,7 @@ namespace Client.Services
 			bool isAccepted = await GetUserResponseAsync(request);
 
 			// sending response to the remote host
-			await stream.WriteBooleanAsync(isAccepted);
+			await SendResponseAsync(stream, isAccepted);
 
 			// close connection if user declined request
 			if (!isAccepted)
