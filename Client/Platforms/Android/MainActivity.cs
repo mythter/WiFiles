@@ -47,7 +47,7 @@ namespace Client
 			new ActivityResultCallback(result =>
 			{
 				string? path = null;
-				if (result.ResultCode == (int)(Result.Ok))
+				if (result?.ResultCode == (int)(Result.Ok))
 				{
 					Intent? intent = result.Data;
 					var uri = intent?.Data;
@@ -80,8 +80,8 @@ namespace Client
 		{
 			var intent = new Intent(Intent.ActionOpenDocument);
 
-			intent.SetType("*/*"); // Указываем, что мы хотим выбрать любой тип файла
-			intent.PutExtra(Intent.ExtraAllowMultiple, true); // Разрешаем выбор нескольких файлов
+			intent.SetType("*/*");
+			intent.PutExtra(Intent.ExtraAllowMultiple, true);
 			intent.AddCategory(Intent.CategoryOpenable);
 
 			//intent.AddFlags(ActivityFlags.GrantPersistableUriPermission);
@@ -94,7 +94,7 @@ namespace Client
 			new ActivityResultCallback(result =>
 			{
 				List<string> paths = new List<string>();
-				if (result.ResultCode == (int)(Result.Ok))
+				if (result?.ResultCode == (int)(Result.Ok))
 				{
 					Intent? intent = result.Data;
 					var uris = intent?.ClipData;
@@ -164,15 +164,15 @@ namespace Client
 			{
 				try
 				{
-					Intent intent = new Intent();
+					Intent intent = new();
 					intent.SetAction(Settings.ActionManageAppAllFilesAccessPermission);
-					Uri uri = Uri.FromParts("package", PackageName, null);
+					Uri? uri = Uri.FromParts("package", PackageName, null);
 					intent.SetData(uri);
 					StartActivity(intent);
 				}
 				catch (Exception)
 				{
-					Intent intent = new Intent();
+					Intent intent = new();
 					intent.SetAction(Settings.ActionManageAllFilesAccessPermission);
 					StartActivity(intent);
 				}
@@ -182,19 +182,18 @@ namespace Client
 				// Below Android 11
 				ActivityCompat.RequestPermissions(
 					this,
-					new string[]
-					{
+					[
 						Android.Manifest.Permission.WriteExternalStorage,
 						Android.Manifest.Permission.ReadExternalStorage
-					},
+					],
 					STORAGE_PERMISSION_CODE
 				);
 			}
 		}
 
-		private static string GetRealPath(Context context, Uri fileUri)
+		private static string? GetRealPath(Context context, Uri fileUri)
 		{
-			string realPath;
+			string? realPath;
 
 			if (Build.VERSION.SdkInt < BuildVersionCodes.Honeycomb)
 			{
@@ -212,10 +211,10 @@ namespace Client
 			return realPath;
 		}
 
-		private static string GetRealPathFromURI_API11to18(Context context, Uri contentUri)
+		private static string? GetRealPathFromURI_API11to18(Context context, Uri contentUri)
 		{
 			string[] proj = { Images.ImageColumns.Data };
-			string result = null;
+			string? result = null;
 
 			using (ICursor cursor = new CursorLoader(context, contentUri, proj, null, null, null).LoadInBackground() as ICursor)
 			{
@@ -230,10 +229,10 @@ namespace Client
 			return result;
 		}
 
-		private static string GetRealPathFromURI_BelowAPI11(Context context, Uri contentUri)
+		private static string? GetRealPathFromURI_BelowAPI11(Context context, Uri contentUri)
 		{
 			string[] proj = { Images.ImageColumns.Data };
-			string result = "";
+			string? result = null;
 
 			using (ICursor cursor = context.ContentResolver.Query(contentUri, proj, null, null, null))
 			{
@@ -259,32 +258,30 @@ namespace Client
 				// ExternalStorageProvider
 				if (IsExternalStorageDocument(uri))
 				{
-					string docId = DocumentsContract.GetDocumentId(uri);
-					string[] split = docId.Split(':', StringSplitOptions.RemoveEmptyEntries);
-					string type = split[0];
+					string? docId = DocumentsContract.GetDocumentId(uri);
+					string[]? split = docId?.Split(':', StringSplitOptions.RemoveEmptyEntries);
+					string? type = split?[0];
 
 					if ("primary".Equals(type, StringComparison.OrdinalIgnoreCase))
 					{
-						return $"{Environment.ExternalStorageDirectory}{(split.Length > 1 ? $"/{split[1]}" : "")}";
+						return $"{Environment.ExternalStorageDirectory}{(split?.Length > 1 ? $"/{split[1]}" : "")}";
 					}
 					else if ("home".Equals(type, StringComparison.OrdinalIgnoreCase))
 					{
 						// Documents folder's type is home
-						return Environment.ExternalStorageDirectory + "/Documents" + (split.Length > 1 ? $"/{split[1]}" : "");
+						return Environment.ExternalStorageDirectory + "/Documents" + (split?.Length > 1 ? $"/{split[1]}" : "");
 					}
 					else
 					{
-						// Обрабатываем другие виды томов, например, вторичные тома (SD-карты) или облачные хранилища
-						StorageManager storageManager = (StorageManager)context.GetSystemService(StorageService);
-						IList<StorageVolume> storageVolumes = storageManager.StorageVolumes;
-						var paths = (string[]?)storageManager.Class
+						// handling other types of volumes, such as secondary volumes (SD cards)
+						StorageManager? storageManager = context.GetSystemService(StorageService) as StorageManager;
+						IList<StorageVolume>? storageVolumes = storageManager?.StorageVolumes;
+						var paths = (string[]?)storageManager?.Class
 							.GetMethod("getVolumePaths")
 							.Invoke(storageManager);
-						var volume = storageVolumes.FirstOrDefault(v => v.IsRemovable && v.State == Environment.MediaMounted);
-						return $"{paths?.SingleOrDefault(p => p.EndsWith(volume.Uuid))}{(split.Length > 1 ? $"/{split[1]}" : "")}";
+						var volume = storageVolumes?.FirstOrDefault(v => v.IsRemovable && v.State == Environment.MediaMounted);
+						return $"{paths?.SingleOrDefault(p => p.EndsWith(volume?.Uuid ?? ""))}{(split?.Length > 1 ? $"/{split[1]}" : "")}";
 					}
-
-					// TODO: Обработка других типов томов
 				}
 				// DownloadsProvider
 				else if (IsDownloadsDocument(uri))
@@ -342,11 +339,11 @@ namespace Client
 				// MediaProvider
 				else if (IsMediaDocument(uri))
 				{
-					string docId = DocumentsContract.GetDocumentId(uri);
-					string[] split = docId.Split(':');
-					string type = split[0];
+					string? docId = DocumentsContract.GetDocumentId(uri);
+					string[]? split = docId?.Split(':');
+					string? type = split?[0];
 
-					Uri contentUri = null;
+					Uri? contentUri = null;
 					if ("image".Equals(type, StringComparison.OrdinalIgnoreCase))
 					{
 						contentUri = Images.Media.ExternalContentUri;
@@ -365,15 +362,14 @@ namespace Client
 					}
 
 					string selection = "_id=?";
-					string[] selectionArgs = { split[1] };
+					string[]? selectionArgs = split?[1] is null ? null : [split[1]];
 
 					return GetDataColumn(context, contentUri, selection, selectionArgs);
 				}
 			}
-			// MediaStore (и общее)
+			// MediaStore
 			else if ("content".Equals(uri.Scheme, StringComparison.OrdinalIgnoreCase))
 			{
-				// Возвращаем удаленный адрес
 				if (IsGooglePhotosUri(uri))
 					return uri.LastPathSegment;
 
@@ -393,13 +389,12 @@ namespace Client
 			string column = "_data";
 			string[] projection = { column };
 
-			using (ICursor? cursor = context?.ContentResolver?.Query(uri, projection, selection, selectionArgs, null))
+			using ICursor? cursor = context?.ContentResolver?.Query(uri, projection, selection, selectionArgs, null);
+
+			if (cursor != null && cursor.MoveToFirst())
 			{
-				if (cursor != null && cursor.MoveToFirst())
-				{
-					int index = cursor.GetColumnIndexOrThrow(column);
-					return cursor.GetString(index);
-				}
+				int index = cursor.GetColumnIndexOrThrow(column);
+				return cursor.GetString(index);
 			}
 
 			return null;
@@ -449,9 +444,9 @@ namespace Client
 
 	public class ActivityResultCallback : Java.Lang.Object, IActivityResultCallback
 	{
-		readonly Action<ActivityResult> _callback;
-		public ActivityResultCallback(Action<ActivityResult> callback) => _callback = callback;
-		public ActivityResultCallback(TaskCompletionSource<ActivityResult> tcs) => _callback = tcs.SetResult;
-		public void OnActivityResult(Java.Lang.Object p0) => _callback((ActivityResult)p0);
+		readonly Action<ActivityResult?> _callback;
+		public ActivityResultCallback(Action<ActivityResult?> callback) => _callback = callback;
+		public ActivityResultCallback(TaskCompletionSource<ActivityResult?> tcs) => _callback = tcs.SetResult;
+		public void OnActivityResult(Java.Lang.Object? result) => _callback(result as ActivityResult);
 	}
 }
