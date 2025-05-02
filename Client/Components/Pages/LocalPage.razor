@@ -24,10 +24,6 @@
 	<RealButton Class="left" OnClick="@RefreshIPs">
 		<i class="ph ph-arrows-clockwise"></i>
 	</RealButton>
-	<RealToggleButton IsChecked="@UseEncryption"
-					  OnClick="@(() => UseEncryption = !UseEncryption)">
-		<i class="ph ph-key"></i>
-	</RealToggleButton>
 	<RealToggleButton IsChecked="TransferService.IsListening"
 					  OnClick="@(() => TransferService.IsListening ? StopListening() : StartListening())">
 		@if (TransferService.IsListening)
@@ -80,8 +76,6 @@
 	public string? Message { get; set; }
 
 	public bool Loading { get; set; }
-
-	public bool UseEncryption { get; set; }
 
 	[CascadingParameter(Name = "MessageBox")]
 	private MessageBox MessageBoxElement { get; set; } = null!;
@@ -158,7 +152,7 @@
 			return;
 		}
 
-		await TransferService.StartSendingAsync(ip, StorageService.SelectedFiles.ToList(), UseEncryption);
+		await TransferService.StartSendingAsync(ip, StorageService.SelectedFiles.ToList());
 	}
 
 	private void UpdateState(object? sender, EventArgs e)
