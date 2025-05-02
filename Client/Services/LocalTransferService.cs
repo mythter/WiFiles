@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Client.Constants;
@@ -62,7 +63,7 @@ namespace Client.Services
 			TcpListener = new TcpListener(IPAddress.Any, NetworkConstants.Port);
 		}
 
-		public async Task StartSendingAsync(IPAddress ip, List<FileModel> files)
+		public async Task StartSendingAsync(IPAddress ip, List<FileModel> files, bool useEncryption = false)
 		{
 			if (files is null || files.Count == 0 || ClientTokenSource is not null)
 				return;
@@ -72,6 +73,9 @@ namespace Client.Services
 			ClientTokenSource = new CancellationTokenSource();
 			var token = ClientTokenSource.Token;
 
+			ECDiffieHellman? ecdh = null;
+			Encryption? encryption = null;
+
 			try
 			{
 				ReceiverIp = ip;
@@ -80,14 +84,47 @@ namespace Client.Services
 				await tcpClient.ConnectAsync(ip, NetworkConstants.Port, token);
 				NetworkStream stream = tcpClient.GetStream();
 
-				await SendRequestAsync(files, stream, token);
+				if (useEncryption)
+				{
+					ecdh = ECDiffieHellman.Create();
+					encryption = new(ecdh.PublicKey.ExportSubjectPublicKeyInfo());
+				}
+
+				await SendRequestAsync(stream, files, encryption, token);
 
 				// waiting for the response from the receiver
-				bool isAccepted = await stream.ReadBooleanAsync();
+				var response = await ReceiveResponseAsync(stream, ip, token);
 
-				if (isAccepted)
+				if (response.IsAccepted)
 				{
-					await SendFilesAsync(stream, files, ip, token);
+					Aes? aes = null;
+
+					if (ecdh is not null && (response?.Encryption?.PublicKey is null || response?.Encryption?.IV is null))
+					{
+						throw new CryptographicException("Not all encryption parameters are provided by receiver.");
+					}
+
+					if (ecdh is not null)
+					{
+						var receiverEcdh = ECDiffieHellman.Create();
+						receiverEcdh.ImportSubjectPublicKeyInfo(response.Encryption!.PublicKey, out _);
+
+						byte[] aesKey = ecdh.DeriveKeyMaterial(receiverEcdh.PublicKey);
+
+						aes = Aes.Create();
+						aes.Padding = PaddingMode.None;
+						aes.Key = aesKey;
+						aes.IV = response.Encryption.IV!;
+					}
+
+					try
+					{
+						await SendFilesAsync(stream, files, response.Receiver, aes, token);
+					}
+					finally
+					{
+						aes?.Dispose();
+					}
 
 					SendingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
 				}
@@ -124,6 +161,8 @@ namespace Client.Services
 				ReceiverIp = null;
 				IsSending = false;
 				SendingStopped?.Invoke(this, EventArgs.Empty);
+
+				ecdh?.Dispose();
 			}
 		}
 
@@ -132,14 +171,17 @@ namespace Client.Services
 			ClientTokenSource?.Cancel();
 		}
 
-		private async Task SendRequestAsync(List<FileModel> filesToSend, NetworkStream stream, CancellationToken cancellationToken)
+		private async Task SendRequestAsync(NetworkStream stream, List<FileModel> filesToSend, Encryption? encryption = null, CancellationToken cancellationToken = default)
 		{
 			List<FileMetadata> filesMetadata = filesToSend
 				.Select(f => new FileMetadata(Path.GetFileName(f.Path), f.Size))
 				.ToList();
 
 			var localDevice = new LocalDeviceModel(_deviceService.GetCurrentDeviceInfo());
-			var request = new LocalRequestModel(localDevice, filesMetadata);
+			var request = new LocalRequestModel(localDevice, filesMetadata)
+			{
+				Encryption = encryption,
+			};
 
 			string requestJson = JsonSerializer.Serialize(request);
 			byte[] requestBytes = Encoding.UTF8.GetBytes(requestJson);
@@ -152,32 +194,63 @@ namespace Client.Services
 		private static async Task<LocalRequestModel> ReceiveRequestAsync(TcpClient tcpClient, CancellationToken cancellationToken = default)
 		{
 			var stream = tcpClient.GetStream();
-			int requestSize = await stream.ReadInt32Async(cancellationToken);
-			string requestJson = await stream.ReadStringAsync(requestSize, cancellationToken);
+			var requestSize = await stream.ReadInt32Async(cancellationToken);
+			var requestJson = await stream.ReadStringAsync(requestSize, cancellationToken);
 
-			LocalRequestModel request = JsonSerializer.Deserialize<LocalRequestModel>(requestJson)
-				?? throw new JsonException("Could not deserialize request JSON.");
+			var request = JsonSerializer.Deserialize<LocalRequestModel>(requestJson)
+				?? throw new JsonException("Could not deserialize request.");
 
 			request.Sender.IP = (tcpClient.Client.RemoteEndPoint as IPEndPoint)?.Address;
 
 			return request;
 		}
 
-		private async Task SendFilesAsync(NetworkStream stream, List<FileModel> files, IPAddress receiver, CancellationToken cancellationToken)
+		private async Task SendResponseAsync(NetworkStream stream, bool isAccepted, Encryption? encryption = null, CancellationToken cancellationToken = default)
+		{
+			var localDevice = new LocalDeviceModel(_deviceService.GetCurrentDeviceInfo());
+			var response = new LocalResponseModel(isAccepted, localDevice)
+			{
+				Encryption = encryption,
+			};
+
+			string responseJson = JsonSerializer.Serialize(response);
+			byte[] responseBytes = Encoding.UTF8.GetBytes(responseJson);
+			byte[] responseSizeBytes = BitConverter.GetBytes(responseBytes.Length);
+
+			await stream.WriteWithTimeoutAsync(responseSizeBytes, SendTimeout, cancellationToken);
+			await stream.WriteWithTimeoutAsync(responseBytes, SendTimeout, cancellationToken);
+		}
+
+		private static async Task<LocalResponseModel> ReceiveResponseAsync(NetworkStream stream, IPAddress ip, CancellationToken cancellationToken = default)
+		{
+			var responseSize = await stream.ReadInt32Async(cancellationToken);
+			var responseJson = await stream.ReadStringAsync(responseSize, cancellationToken);
+
+			var response = JsonSerializer.Deserialize<LocalResponseModel>(responseJson)
+				?? throw new JsonException("Could not deserialize response.");
+
+			response.Receiver.IP = ip;
+
+			return response;
+		}
+
+		private async Task SendFilesAsync(NetworkStream stream, List<FileModel> files, LocalDeviceModel receiver, Aes? aes = null, CancellationToken cancellationToken = default)
 		{
 			foreach (var fileModel in files)
 			{
+				using var encryptor = aes?.CreateEncryptor();
+
 				FileTransferModel file = new(fileModel, TransferType.Local)
 				{
 					Status = TransferStatus.InProgress,
-					Receiver = receiver.ToString()
+					Receiver = receiver
 				};
 
 				try
 				{
 					SendingFileStarted?.Invoke(this, file);
 
-					await SendFileAsync(stream, file, cancellationToken);
+					await SendFileAsync(stream, file, encryptor, cancellationToken);
 
 					file.Status = TransferStatus.Finished;
 					SendingFileEnded?.Invoke(this, file);
@@ -191,30 +264,44 @@ namespace Client.Services
 			}
 		}
 
-		private async Task SendFileAsync(NetworkStream stream, FileTransferModel file, CancellationToken cancellationToken)
+		private async Task SendFileAsync(NetworkStream networkStream, FileTransferModel file, ICryptoTransform? encryptor = null, CancellationToken cancellationToken = default)
 		{
-			var bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
+			var useEncryption = encryptor is not null;
+
+			Stream stream = useEncryption
+				? new CryptoStream(networkStream, encryptor!, CryptoStreamMode.Write, leaveOpen: true)
+				: networkStream;
+
 			await using var fs = new FileStream(file.Path, FileMode.Open, FileAccess.Read);
-			var size = fs.Length < bufferSize ? fs.Length : bufferSize;
-			var buffer = new byte[size];
+
+			var blockSize = encryptor?.OutputBlockSize ?? 0;
+			var bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
+			var size = fs.Length < bufferSize ? (int)fs.Length : bufferSize;
+			var padding = useEncryption ? (blockSize - (size % blockSize)) % blockSize : 0;
+			var buffer = new byte[size + padding];
+
 			int bytesRead;
-			while ((bytesRead = await fs.ReadAsync(buffer)) > 0)
+			while ((bytesRead = await fs.ReadAsync(buffer.AsMemory(0, size), cancellationToken)) > 0)
 			{
-				if (bytesRead < buffer.Length)
-				{
-					Array.Resize(ref buffer, bytesRead);
-				}
-				await stream.WriteWithTimeoutAsync(buffer, SendTimeout, cancellationToken);
+				padding = useEncryption ? (blockSize - (bytesRead % blockSize)) % blockSize : 0;
+
+				await stream.WriteWithTimeoutAsync(buffer.AsMemory(0, bytesRead + padding), SendTimeout, cancellationToken);
+				await stream.FlushAsync(cancellationToken);
 				file.CurrentProgress += bytesRead;
+			}
+
+			if (stream is CryptoStream cryptoStream)
+			{
+				await cryptoStream.DisposeAsync();
 			}
 		}
 
-		private async Task ReceiveFilesAsync(NetworkStream stream, LocalRequestModel request, CancellationToken cancellationToken)
+		private async Task ReceiveFilesAsync(NetworkStream stream, LocalRequestModel request, Aes? aes = null, CancellationToken cancellationToken = default)
 		{
-			string? sender = request.Sender?.ToString();
-
 			foreach (var fileMetadata in request.Files)
 			{
+				using var decryptor = aes?.CreateDecryptor();
+
 				string filePath = FileHelper.GetUniqueFilePath(fileMetadata.Name, _storageService.SaveFolder);
 				FileTransferModel file = new(filePath, fileMetadata.Size, TransferType.Local)
 				{
@@ -226,7 +313,7 @@ namespace Client.Services
 				{
 					ReceivingFileStarted?.Invoke(this, file);
 
-					await ReceiveFileAsync(stream, file, cancellationToken);
+					await ReceiveFileAsync(stream, file, decryptor, cancellationToken);
 
 					file.Status = TransferStatus.Finished;
 					ReceivingFileEnded?.Invoke(this, file);
@@ -240,23 +327,46 @@ namespace Client.Services
 			}
 		}
 
-		private async Task ReceiveFileAsync(NetworkStream stream, FileTransferModel file, CancellationToken cancellationToken)
+		private async Task ReceiveFileAsync(NetworkStream networkStream, FileTransferModel file, ICryptoTransform? decryptor = null, CancellationToken cancellationToken = default)
 		{
-			using FileStream fs = new(file.Path, FileMode.Create, FileAccess.Write);
-			long receivedSize = 0;
-			byte[] buffer;
+			var useEncryption = decryptor is not null;
+
+			Stream stream = useEncryption
+				? new CryptoStream(networkStream, decryptor!, CryptoStreamMode.Read, leaveOpen: true)
+				: networkStream;
+
+			await using var fs = new FileStream(file.Path, FileMode.Create, FileAccess.Write);
+
+			var blockSize = decryptor?.InputBlockSize ?? 0;
 			int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
+			var size = bufferSize > file.Size ? (int)file.Size : bufferSize;
+			var padding = useEncryption ? (blockSize - (size % blockSize)) % blockSize : 0;
+			byte[] buffer = new byte[size + padding];
+
+			long receivedSize = 0;
+
 			while (receivedSize < file.Size)
 			{
-				buffer = new byte[bufferSize < file.Size - receivedSize ? bufferSize : file.Size - receivedSize];
-				int size = await stream.ReadWithTimeoutAsync(buffer, ReceiveTimeout, cancellationToken);
-				if (size == 0)
+				var bytesRead = await stream.ReadWithTimeoutAsync(buffer, ReceiveTimeout, cancellationToken);
+
+				if (bytesRead == 0)
 				{
 					throw new OperationCanceledException("Sender cancelled the operation or was disconnected.");
 				}
-				await fs.WriteAsync(buffer.AsMemory(0, size));
-				receivedSize += size;
+
+				await fs.WriteAsync(buffer.AsMemory(0, bytesRead - padding), cancellationToken);
+
+				receivedSize += (bytesRead - padding);
 				file.CurrentProgress = receivedSize;
+
+				size = bufferSize > file.Size - receivedSize ? (int)(file.Size - receivedSize) : bufferSize;
+				padding = useEncryption ? (blockSize - (size % blockSize)) % blockSize : 0;
+				buffer = buffer.Length > size + padding ? new byte[size + padding] : buffer;
+			}
+
+			if (stream is CryptoStream cryptoStream)
+			{
+				await cryptoStream.DisposeAsync();
 			}
 		}
 
@@ -330,11 +440,30 @@ namespace Client.Services
 			// retrieving request from the remote host
 			LocalRequestModel request = await ReceiveRequestAsync(tcpClient);
 
-			// getting current user response
+			// getting user response
 			bool isAccepted = await GetUserResponseAsync(request);
 
+			Encryption? encryption = null;
+			Aes? aes = null;
+
+			if (isAccepted && request.Encryption?.PublicKey is { } senderKey)
+			{
+				var receiverEcdh = ECDiffieHellman.Create();
+
+				var senderEcdh = ECDiffieHellman.Create();
+				senderEcdh.ImportSubjectPublicKeyInfo(senderKey, out _);
+
+				byte[] aesKey = receiverEcdh.DeriveKeyMaterial(senderEcdh.PublicKey);
+				aes = Aes.Create();
+				aes.Padding = PaddingMode.None;
+				aes.Key = aesKey;
+				aes.GenerateIV();
+
+				encryption = new(receiverEcdh.ExportSubjectPublicKeyInfo(), aes.IV);
+			}
+
 			// sending response to the remote host
-			await stream.WriteBooleanAsync(isAccepted);
+			await SendResponseAsync(stream, isAccepted, encryption);
 
 			// close connection if user declined request
 			if (!isAccepted)
@@ -353,7 +482,7 @@ namespace Client.Services
 				IsReceiving = true;
 				ReceivingTokenSource = new CancellationTokenSource();
 
-				await ReceiveFilesAsync(stream, request, ReceivingTokenSource.Token);
+				await ReceiveFilesAsync(stream, request, aes, ReceivingTokenSource.Token);
 
 				ReceivingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
 			}
@@ -393,6 +522,8 @@ namespace Client.Services
 				IsReceiving = false;
 				ReceivingTokenSource?.Dispose();
 				ReceivingTokenSource = null;
+
+				aes?.Dispose();
 
 				tcpClient.Close();
 				ReceivingStopped?.Invoke(this, EventArgs.Empty);

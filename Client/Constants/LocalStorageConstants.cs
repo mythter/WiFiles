@@ -11,5 +11,7 @@
 		public const string ReceivedFilesKey = "receivedFiles";
 
 		public const string ServerUrlKey = "serverUrl";
+
+		public const string UseEncryptionKey = "useEncryption";
 	}
 }

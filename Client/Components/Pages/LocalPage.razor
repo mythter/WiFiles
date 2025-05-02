@@ -1,7 +1,9 @@
 ﻿@page "/local"
 @using System.Net
+@using Client.Constants
 @inject ILocalNetworkService lns
 @inject INetworkInfoService nis
+@inject ILocalStorageService localStorage
 @inject NavigationService NavigationService
 @inject LocalTransferService TransferService
 @inject IStorageService StorageService
@@ -25,7 +27,7 @@
 		<i class="ph ph-arrows-clockwise"></i>
 	</RealButton>
 	<RealToggleButton IsChecked="@UseEncryption"
-					  OnClick="@(() => UseEncryption = !UseEncryption)">
+					  OnClick="ToggleEncryption">
 		<i class="ph ph-key"></i>
 	</RealToggleButton>
 	<RealToggleButton IsChecked="TransferService.IsListening"
@@ -88,12 +90,16 @@
 
 	protected override async Task OnInitializedAsync()
 	{
+		UseEncryption = await localStorage.GetItemAsync<bool>(LocalStorageConstants.UseEncryptionKey);
+
 		TransferService.ListeningStarted += UpdateState;
 		TransferService.ListeningStopped += UpdateState;
 
 		lns.DeviceFound += OnDeviceFound;
 
 		Message = "Getting active network interfaces...";
+
+		StateHasChanged();
 
 		await Task.Run(() =>
 		{
@@ -111,6 +117,12 @@
 		{
 			_ = lns.StartMulticastScanAsync(IPAddress.Parse(SelectedIP));
 		}
+	}
+
+	private async Task ToggleEncryption()
+	{
+		UseEncryption = !UseEncryption;
+		await localStorage.SetItemAsync(LocalStorageConstants.UseEncryptionKey, UseEncryption);
 	}
 
 	private void OnDeviceFound(object? sender, LocalDeviceModel device)

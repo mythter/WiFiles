@@ -30,7 +30,7 @@ namespace Client.Extensions
 
 		public static async Task WriteWithTimeoutAsync(
 			this Stream stream,
-			byte[] buffer,
+			Memory<byte> buffer,
 			int timeout,
 			CancellationToken cancellationToken)
 		{

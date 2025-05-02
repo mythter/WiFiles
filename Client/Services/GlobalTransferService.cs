@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using Client.Exceptions;
 using Client.Helpers;
 using Client.Interfaces;
@@ -32,6 +33,8 @@ namespace Client.Services
 		private GlobalRequestModel? SendRequest { get; set; }
 
 		private List<FileModel> FilesToSend { get; set; } = [];
+
+		private ECDiffieHellman? Ecdh { get; set; }
 
 		public bool IsSending { get; private set; }
 
@@ -117,7 +120,7 @@ namespace Client.Services
 			SessionId = 0;
 		}
 
-		public async Task StartSendingAsync(long receiverSessionId, List<FileModel> files)
+		public async Task StartSendingAsync(long receiverSessionId, List<FileModel> files, bool useEncryption)
 		{
 			if (IsSending || _connection.State != HubConnectionState.Connected)
 			{
@@ -130,7 +133,16 @@ namespace Client.Services
 			ReceiverId = receiverSessionId;
 			FilesToSend = files ?? [];
 
-			await SendRequestAsync(receiverSessionId, FilesToSend);
+			Ecdh = null;
+			Encryption? encryption = null;
+
+			if (useEncryption)
+			{
+				Ecdh = ECDiffieHellman.Create();
+				encryption = new(Ecdh.PublicKey.ExportSubjectPublicKeyInfo());
+			}
+
+			await SendRequestAsync(receiverSessionId, FilesToSend, encryption);
 
 			SendingStarted?.Invoke(this, EventArgs.Empty);
 		}
@@ -160,7 +172,7 @@ namespace Client.Services
 			ReceiveTokenSource?.Cancel();
 		}
 
-		private async Task SendRequestAsync(long receiverSessionId, List<FileModel> files)
+		private async Task SendRequestAsync(long receiverSessionId, List<FileModel> files, Encryption? encryption = null)
 		{
 			try
 			{
@@ -172,7 +184,10 @@ namespace Client.Services
 
 				var deviceModel = new GlobalDeviceModel(_deviceService.GetCurrentDeviceInfo());
 
-				SendRequest = new GlobalRequestModel(SessionId, receiverSessionId, deviceModel, filesMetadata);
+				SendRequest = new GlobalRequestModel(SessionId, receiverSessionId, deviceModel, filesMetadata)
+				{
+					Encryption = encryption
+				};
 				await _connection.InvokeAsync(ServerConstants.FileHub.SendRequest, SendRequest, SendRequestTokenSource.Token);
 			}
 			catch (Exception ex)
@@ -208,6 +223,9 @@ namespace Client.Services
 			ReceiverId = 0;
 			SendRequest = null;
 			FilesToSend.Clear();
+
+			Ecdh?.Dispose();
+			Ecdh = null;
 
 			SendRequestTokenSource?.Cancel();
 			SendTokenSource?.Cancel();
@@ -246,7 +264,29 @@ namespace Client.Services
 			IsReceiving = accepted;
 			var deviceModel = new GlobalDeviceModel(_deviceService.GetCurrentDeviceInfo());
 
-			var response = new GlobalResponseModel(accepted, deviceModel, SessionId, request.SenderSessionId);
+			Encryption? encryption = null;
+			Aes? aes = null;
+
+			if (accepted && request.Encryption?.PublicKey is { } senderKey)
+			{
+				var receiverEcdh = ECDiffieHellman.Create();
+
+				var senderEcdh = ECDiffieHellman.Create();
+				senderEcdh.ImportSubjectPublicKeyInfo(senderKey, out _);
+
+				byte[] aesKey = receiverEcdh.DeriveKeyMaterial(senderEcdh.PublicKey);
+				aes = Aes.Create();
+				aes.Padding = PaddingMode.None;
+				aes.Key = aesKey;
+				aes.GenerateIV();
+
+				encryption = new(receiverEcdh.ExportSubjectPublicKeyInfo(), aes.IV);
+			}
+
+			var response = new GlobalResponseModel(accepted, deviceModel, SessionId, request.SenderSessionId)
+			{
+				Encryption = encryption
+			};
 			await _connection.InvokeAsync(ServerConstants.FileHub.SendResponse, response);
 
 			if (!accepted) return;
@@ -255,7 +295,7 @@ namespace Client.Services
 
 			try
 			{
-				await ReceiveFiles(request, ReceiveTokenSource.Token);
+				await ReceiveFiles(request, aes, ReceiveTokenSource.Token);
 
 				ReceivingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
 			}
@@ -267,6 +307,8 @@ namespace Client.Services
 			{
 				ReceiveTokenSource.Dispose();
 				ReceiveTokenSource = null;
+
+				aes?.Dispose();
 
 				StopReceiving();
 			}
@@ -282,6 +324,26 @@ namespace Client.Services
 
 			if (response.IsAccepted && FilesToSend.Count == SendRequest?.Files.Count)
 			{
+				Aes? aes = null;
+
+				if (Ecdh is not null && (response?.Encryption?.PublicKey is null || response?.Encryption?.IV is null))
+				{
+					throw new CryptographicException("Not all encryption parameters are provided by receiver.");
+				}
+
+				if (Ecdh is not null)
+				{
+					var receiverEcdh = ECDiffieHellman.Create();
+					receiverEcdh.ImportSubjectPublicKeyInfo(response.Encryption!.PublicKey, out _);
+
+					byte[] aesKey = Ecdh.DeriveKeyMaterial(receiverEcdh.PublicKey);
+
+					aes = Aes.Create();
+					aes.Padding = PaddingMode.None;
+					aes.Key = aesKey;
+					aes.IV = response.Encryption.IV!;
+				}
+
 				// don't block the flow so that we can receive messages from the server while streaming
 				_ = Task.Run(async () =>
 				{
@@ -289,12 +351,14 @@ namespace Client.Services
 
 					try
 					{
-						await SendFilesAsync(FilesToSend, SendRequest.Files, response.Receiver.ToString(), SendTokenSource.Token);
+						await SendFilesAsync(FilesToSend, SendRequest.Files, response.Receiver, aes, SendTokenSource.Token);
 					}
 					finally
 					{
 						SendTokenSource?.Dispose();
 						SendTokenSource = null;
+
+						aes?.Dispose();
 
 						StopSending();
 					}
@@ -306,10 +370,12 @@ namespace Client.Services
 			}
 		}
 
-		private async Task SendFilesAsync(List<FileModel> files, List<FileMetadata> filesMetadata, DeviceModel receiver, CancellationToken cancellationToken = default)
+		private async Task SendFilesAsync(List<FileModel> files, List<FileMetadata> filesMetadata, DeviceModel receiver, Aes? aes = null, CancellationToken cancellationToken = default)
 		{
 			foreach (var fileData in files.Zip(filesMetadata, static (f, meta) => (File: f, meta.FileId)))
 			{
+				using var encryptor = aes?.CreateEncryptor();
+
 				FileTransferModel file = new(fileData.File, TransferType.Global)
 				{
 					Status = TransferStatus.InProgress,
@@ -320,7 +386,7 @@ namespace Client.Services
 				{
 					SendingFileStarted?.Invoke(this, file);
 
-					await SendFileAsync(file, fileData.FileId, cancellationToken);
+					await SendFileAsync(file, fileData.FileId, encryptor, cancellationToken);
 
 					file.Status = TransferStatus.Finished;
 					SendingFileEnded?.Invoke(this, file);
@@ -337,19 +403,21 @@ namespace Client.Services
 			SendingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
 		}
 
-		private async Task SendFileAsync(FileTransferModel file, Guid fileId, CancellationToken cancellationToken = default)
+		private async Task SendFileAsync(FileTransferModel file, Guid fileId, ICryptoTransform? encryptor = null, CancellationToken cancellationToken = default)
 		{
 			var tcs = new TaskCompletionSource();
-			IAsyncEnumerable<byte[]> fileStream = GenerateFileStream(file, tcs.SetResult, tcs.SetException, tcs.SetCanceled, cancellationToken);
+			IAsyncEnumerable<byte[]> fileStream = GenerateFileStream(file, tcs.SetResult, tcs.SetException, tcs.SetCanceled, encryptor, cancellationToken);
 
 			await _connection.SendAsync(ServerConstants.FileHub.SendFile, ReceiverId, fileStream, fileId);
 			await tcs.Task;
 		}
 
-		private async Task ReceiveFiles(GlobalRequestModel request, CancellationToken cancellationToken = default)
+		private async Task ReceiveFiles(GlobalRequestModel request, Aes? aes = null, CancellationToken cancellationToken = default)
 		{
 			for (int i = 0; i < request.Files.Count; i++)
 			{
+				using var decryptor = aes?.CreateDecryptor();
+
 				string filePath = FileHelper.GetUniqueFilePath(request.Files[i].Name, _storageService.SaveFolder);
 				FileTransferModel fileTransferModel = new(filePath, request.Files[i].Size, TransferType.Global)
 				{
@@ -361,7 +429,7 @@ namespace Client.Services
 				{
 					ReceivingFileStarted?.Invoke(this, fileTransferModel);
 
-					await ReceiveFile(fileTransferModel, request.Files[i].FileId, i == (request.Files.Count - 1), cancellationToken);
+					await ReceiveFile(fileTransferModel, request.Files[i].FileId, i == (request.Files.Count - 1), decryptor, cancellationToken);
 
 					ReceivingFileEnded?.Invoke(this, fileTransferModel);
 				}
@@ -374,16 +442,40 @@ namespace Client.Services
 			}
 		}
 
-		private async Task ReceiveFile(FileTransferModel file, Guid fileId, bool isLast, CancellationToken cancellationToken = default)
+		private async Task ReceiveFile(FileTransferModel file, Guid fileId, bool isLast, ICryptoTransform? decryptor = null, CancellationToken cancellationToken = default)
 		{
 			using FileStream fs = new(file.Path, FileMode.Create, FileAccess.Write);
 
 			var fileStream = _connection.StreamAsync<byte[]>(ServerConstants.FileHub.ReceiveFile, fileId, isLast, cancellationToken);
 
-			await foreach (var chunk in fileStream)
+			if (decryptor is not null)
 			{
-				await fs.WriteAsync(chunk.AsMemory(0, chunk.Length), cancellationToken);
-				file.CurrentProgress += chunk.Length;
+				var blockSize = decryptor.OutputBlockSize;
+				int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
+				var size = bufferSize > file.Size ? (int)file.Size : bufferSize;
+				var padding = (blockSize - (size % blockSize)) % blockSize;
+				byte[] buffer = new byte[size + padding];
+
+				int bytesWritten;
+				await foreach (var chunk in fileStream)
+				{
+					bytesWritten = decryptor.TransformBlock(chunk, 0, chunk.Length, buffer, 0);
+
+					await fs.WriteAsync(buffer.AsMemory(0, bytesWritten - padding), cancellationToken);
+					file.CurrentProgress += (bytesWritten - padding);
+
+					size = bufferSize > file.Size - file.CurrentProgress ? (int)(file.Size - file.CurrentProgress) : bufferSize;
+					padding = (blockSize - (size % blockSize)) % blockSize;
+					buffer = buffer.Length > size + padding ? new byte[size + padding] : buffer;
+				}
+			}
+			else
+			{
+				await foreach (var chunk in fileStream)
+				{
+					await fs.WriteAsync(chunk.AsMemory(0, chunk.Length), cancellationToken);
+					file.CurrentProgress += chunk.Length;
+				}
 			}
 
 			file.Status = file.CurrentProgress == file.Size
@@ -391,13 +483,17 @@ namespace Client.Services
 				: throw new TransferException($"The {Path.GetFileName(file.Path)} file data was not received completely");
 		}
 
+		[System.Diagnostics.CodeAnalysis.SuppressMessage("Major Code Smell", "S3358:Ternary operators should not be nested", Justification = "My code my rules.")]
 		private static async IAsyncEnumerable<byte[]> GenerateFileStream(
 			FileTransferModel file,
 			Action? successCallback,
 			Action<Exception>? failCallback,
 			Action? cancelCallback,
+			ICryptoTransform? encryptor = null,
 			[EnumeratorCancellation] CancellationToken cancellationToken = default)
 		{
+			var useEncryption = encryptor is not null;
+
 			FileStream? fs = null;
 			try
 			{
@@ -414,21 +510,27 @@ namespace Client.Services
 				throw;
 			}
 
-			int bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
-			long size = fs.Length < bufferSize ? fs.Length : bufferSize;
-			byte[] buffer = new byte[size];
-			int bytesRead = 0;
+			var blockSize = encryptor?.OutputBlockSize ?? 0;
+			var bufferSize = FileHelper.GetBufferSizeByFileSize(file.Size);
+			var size = fs.Length < bufferSize ? (int)fs.Length : bufferSize;
+			var padding = useEncryption ? (blockSize - (size % blockSize)) % blockSize : 0;
+			var buffer = new byte[size + padding];
+			var chunk = new byte[size + padding];
 
+			int bytesRead = 0;
 			do
 			{
 				try
 				{
-					bytesRead = await fs.ReadAsync(buffer, cancellationToken);
+					bytesRead = await fs.ReadAsync(buffer.AsMemory(0, size), cancellationToken);
 
-					if (bytesRead < buffer.Length)
-					{
-						Array.Resize(ref buffer, bytesRead);
-					}
+					if (bytesRead == 0) break;
+
+					padding = useEncryption ? (blockSize - (bytesRead % blockSize)) % blockSize : 0;
+
+					chunk = chunk.Length > bytesRead + padding ? new byte[bytesRead + padding] : chunk;
+
+					encryptor?.TransformBlock(buffer, 0, bytesRead + padding, chunk, 0);
 
 					file.CurrentProgress += bytesRead;
 				}
@@ -447,7 +549,9 @@ namespace Client.Services
 					throw;
 				}
 
-				yield return buffer;
+				yield return useEncryption
+					? chunk
+					: buffer.Length > bytesRead ? buffer.AsSpan(0, bytesRead).ToArray() : buffer;
 
 			} while (bytesRead > 0);
 

@@ -6,7 +6,7 @@
 
 		public bool IsAccepted { get; set; }
 
-		public ResponseModel(bool isAccepted)
+		public Encryption? Encryption { get; set; }
 
 		public ResponseModel(bool isAccepted, T receiver)
 		{

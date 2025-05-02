@@ -6,8 +6,10 @@
 
 		public List<FileMetadata> Files { get; set; } = [];
 
+		public Encryption? Encryption { get; set; }
+
 		public RequestModel(T sender)
-	{
+		{
 			Sender = sender;
 		}
 	}

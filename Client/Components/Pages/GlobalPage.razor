@@ -23,7 +23,11 @@
 		<i class="ph ph-files"></i>
 	</BadgeButton>
 
-	<RealToggleButton Class="@($"left {ConnectionButtonClass}")"
+	<RealToggleButton Class="left" IsChecked="@UseEncryption"
+					  OnClick="ToggleEncryption">
+		<i class="ph ph-key"></i>
+	</RealToggleButton>
+	<RealToggleButton Class="@($"{ConnectionButtonClass}")"
 					  IsChecked="gts.ConnectionState == HubConnectionState.Connected"
 					  OnClick="@(() => gts.ConnectionState != HubConnectionState.Disconnected ? DisconnetFromServer() : ConnectToServer())">
 		<i class="ph ph-power"></i>
@@ -99,6 +103,8 @@
 
 	private string SendButtonText => gts.IsSending ? "Cancel" : "Send";
 
+	public bool UseEncryption { get; set; }
+
 	IJSObjectReference jsModule = null!;
 
 	[CascadingParameter(Name = "MessageBox")]
@@ -113,6 +119,7 @@
 		gts.SendingFinishedSuccessfully += UpdateState;
 
 		ServerUrl = await localStorage.GetItemAsync<string>(LocalStorageConstants.ServerUrlKey);
+		UseEncryption = await localStorage.GetItemAsync<bool>(LocalStorageConstants.UseEncryptionKey);
 
 		if (gts.IsSending)
 		{
@@ -129,6 +136,12 @@
 	private void UpdateState<T>(object? sender, T _)
 	{
 		InvokeAsync(StateHasChanged);
+	}
+
+	private async Task ToggleEncryption()
+	{
+		UseEncryption = !UseEncryption;
+		await localStorage.SetItemAsync(LocalStorageConstants.UseEncryptionKey, UseEncryption);
 	}
 
 	private async Task OnServerUrlChange(string url)
@@ -234,7 +247,7 @@
 				return;
 			}
 
-			await gts.StartSendingAsync(receiverId, StorageService.SelectedFiles.ToList());
+			await gts.StartSendingAsync(receiverId, StorageService.SelectedFiles.ToList(), UseEncryption);
 		}
 		else
 		{
