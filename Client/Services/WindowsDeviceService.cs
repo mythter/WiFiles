@@ -3,6 +3,7 @@ using System.Management;
 using Domain.Enums;
 using Client.Interfaces;
 using Domain.Models;
+using Domain.Models.Device;
 
 namespace Client.Services
 {

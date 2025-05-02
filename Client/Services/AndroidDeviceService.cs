@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Client.Interfaces;
 using Domain.Enums;
-using Domain.Models;
+using Domain.Models.Device;
 
 namespace Client.Services
 {

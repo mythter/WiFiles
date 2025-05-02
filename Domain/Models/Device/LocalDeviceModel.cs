@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using Domain.Constants;
 using Domain.Enums;
 
-namespace Domain.Models
+namespace Domain.Models.Device
 {
 	public class LocalDeviceModel : DeviceModel
 	{

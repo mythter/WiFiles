@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Serialization;
 using Domain.Enums;
 
-namespace Domain.Models
+namespace Domain.Models.Device
 {
 	public class GlobalDeviceModel : DeviceModel
 	{

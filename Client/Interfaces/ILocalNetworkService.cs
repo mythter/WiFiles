@@ -1,5 +1,5 @@
 ﻿using System.Net;
-using Domain.Models;
+using Domain.Models.Device;
 
 namespace Client.Interfaces
 {

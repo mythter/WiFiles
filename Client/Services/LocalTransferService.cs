@@ -8,7 +8,11 @@ using Client.Extensions;
 using Client.Helpers;
 using Client.Interfaces;
 using Domain.Enums;
-using Domain.Models;
+using Domain.Models.Device;
+using Domain.Models.Encryptions;
+using Domain.Models.File;
+using Domain.Models.Request;
+using Domain.Models.Response;
 
 namespace Client.Services
 {

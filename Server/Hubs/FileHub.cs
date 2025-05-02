@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Threading.Channels;
-using Domain.Models;
+using Domain.Models.Request;
+using Domain.Models.Response;
 using Microsoft.AspNetCore.SignalR;
 using Server.Services;
 using Shared.Constants;

@@ -6,7 +6,7 @@ using Client.Constants;
 using Client.Extensions;
 using Client.Interfaces;
 using Domain.Constants;
-using Domain.Models;
+using Domain.Models.Device;
 
 namespace Client.Services
 {

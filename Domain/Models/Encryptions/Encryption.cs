@@ -1,4 +1,4 @@
-﻿namespace Domain.Models
+﻿namespace Domain.Models.Encryptions
 {
 	public class Encryption
 	{

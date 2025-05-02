@@ -1,4 +1,7 @@
-﻿namespace Domain.Models
+﻿using Domain.Models.Device;
+using Domain.Models.Encryptions;
+
+namespace Domain.Models.Response
 {
 	public class ResponseModel<T> where T : DeviceModel
 	{

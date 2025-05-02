@@ -1,4 +1,8 @@
-﻿namespace Domain.Models
+﻿using Domain.Models.Device;
+using Domain.Models.Encryptions;
+using Domain.Models.File;
+
+namespace Domain.Models.Request
 {
 	public class RequestModel<T> where T : DeviceModel
 	{

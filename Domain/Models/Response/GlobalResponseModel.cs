@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Serialization;
+using Domain.Models.Device;
 
-namespace Domain.Models
+namespace Domain.Models.Response
 {
 	public class GlobalResponseModel : ResponseModel<GlobalDeviceModel>
 	{

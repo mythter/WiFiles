@@ -1,5 +1,5 @@
 ﻿using Client.Interfaces;
-using Domain.Models;
+using Domain.Models.File;
 
 namespace Client.Services
 {

@@ -1,6 +1,8 @@
 ﻿using System.Text.Json.Serialization;
+using Domain.Models.Device;
+using Domain.Models.File;
 
-namespace Domain.Models
+namespace Domain.Models.Request
 {
 	public class LocalRequestModel : RequestModel<LocalDeviceModel>
 	{

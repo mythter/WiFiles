@@ -1,7 +1,8 @@
 ﻿using System.Text.Json.Serialization;
 using Domain.Enums;
+using Domain.Models.Device;
 
-namespace Domain.Models
+namespace Domain.Models.File
 {
 	public class FileTransferModel : FileModel
 	{

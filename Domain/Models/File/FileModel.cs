@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using Domain.Enums;
 
-namespace Domain.Models
+namespace Domain.Models.File
 {
 	public class FileModel
 	{
