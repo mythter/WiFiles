@@ -83,8 +83,6 @@
 
 	public bool Loading { get; set; }
 
-	public bool UseEncryption { get; set; }
-
 	[CascadingParameter(Name = "MessageBox")]
 	private MessageBox MessageBoxElement { get; set; } = null!;
 
@@ -170,7 +168,7 @@
 			return;
 		}
 
-		await TransferService.StartSendingAsync(ip, StorageService.SelectedFiles.ToList(), UseEncryption);
+		await TransferService.StartSendingAsync(ip, StorageService.SelectedFiles.ToList());
 	}
 
 	private void UpdateState(object? sender, EventArgs e)

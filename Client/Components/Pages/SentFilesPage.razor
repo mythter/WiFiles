@@ -59,12 +59,12 @@
 
 	private void StopSending()
 	{
-		if (lts.IsReceiving)
+		if (lts.IsSending)
 		{
 			lts.StopSending();
 		}
 
-		if (gts.IsReceiving)
+		if (gts.IsSending)
 		{
 			gts.StopSending();
 		}

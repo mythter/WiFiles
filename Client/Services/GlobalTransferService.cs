@@ -22,7 +22,7 @@ namespace Client.Services
 
 		private readonly IConfiguration _configuration;
 
-		private HubConnection _connection;
+		private HubConnection _connection = null!;
 
 		private string? _serverUrl;
 
@@ -44,7 +44,7 @@ namespace Client.Services
 
 		public long ReceiverId { get; private set; }
 
-		public HubConnectionState ConnectionState => _connection.State;
+		public HubConnectionState ConnectionState => _connection?.State ?? HubConnectionState.Disconnected;
 
 		public event EventHandler? Disconnected;
 
@@ -86,22 +86,21 @@ namespace Client.Services
 			_storageService = storageService;
 			_logger = logger;
 			_configuration = configuration;
-
-			_connection = CreateHubConnection(GetConnectionUrl());
 		}
 
 		public async Task ConnectAsync(string? serverUrl = null)
 		{
-			if (_connection.State != HubConnectionState.Disconnected)
+			if (ConnectionState != HubConnectionState.Disconnected)
 			{
 				return;
 			}
 
-			_serverUrl = serverUrl;
-			_connection = CreateHubConnection(GetConnectionUrl());
+			_serverUrl = serverUrl ?? _configuration.GetValue<string>(Constants.Config.Server.BASE_URL_PATH);
 
 			try
 			{
+				_connection = CreateHubConnection(GetConnectionUrl(_serverUrl));
+
 				await _connection.StartAsync();
 			}
 			catch (Exception)
@@ -113,8 +112,11 @@ namespace Client.Services
 
 		public async Task DisconnectAsync()
 		{
-			await _connection.StopAsync();
-			await _connection.DisposeAsync();
+			if (_connection is not null)
+			{
+				await _connection.StopAsync();
+				await _connection.DisposeAsync();
+			}
 
 			_serverUrl = null;
 			SessionId = 0;
@@ -122,7 +124,7 @@ namespace Client.Services
 
 		public async Task StartSendingAsync(long receiverSessionId, List<FileModel> files, bool useEncryption)
 		{
-			if (IsSending || _connection.State != HubConnectionState.Connected)
+			if (IsSending || ConnectionState != HubConnectionState.Connected)
 			{
 				return;
 			}
@@ -165,7 +167,7 @@ namespace Client.Services
 			}
 		}
 
-		public void ResetReceiving()
+		private void ResetReceiving()
 		{
 			IsReceiving = false;
 
@@ -566,9 +568,11 @@ namespace Client.Services
 			ReceivingFileFailed?.Invoke(this, filePath);
 		}
 
-		private string GetConnectionUrl()
+		private string GetConnectionUrl(string? basePath)
 		{
-			Uri baseUrl = new(_serverUrl ?? _configuration.GetValue<string>(Constants.Config.Server.BASE_URL_PATH) ?? "");
+			ArgumentException.ThrowIfNullOrWhiteSpace(basePath);
+
+			Uri baseUrl = new(basePath);
 			string fileHubUrl = _configuration.GetValue<string>(Constants.Config.Server.FILE_HUB_PATH) ?? "";
 			return new Uri(baseUrl, fileHubUrl).AbsoluteUri;
 		}
@@ -605,8 +609,6 @@ namespace Client.Services
 
 		private void ListenFiles(HubConnection connection)
 		{
-			//connection.On<FileMetadata, Guid, bool>(ServerConstants.FileHub.StartReceivingFile, OnStartReceivingFile);
-
 			connection.On(ServerConstants.FileHub.ReceivingCancelled, OnReceivingCancelled);
 
 			connection.On(ServerConstants.FileHub.SendingCancelled, OnSendingCancelled);
@@ -658,8 +660,11 @@ namespace Client.Services
 			SendTokenSource?.Dispose();
 			ReceiveTokenSource?.Dispose();
 
-			await _connection.StopAsync();
-			await _connection.DisposeAsync();
+			if (_connection is not null)
+			{
+				await _connection.StopAsync();
+				await _connection.DisposeAsync();
+			}
 		}
 	}
 }
