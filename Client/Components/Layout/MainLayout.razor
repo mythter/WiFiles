@@ -109,6 +109,7 @@
 		GlobalTransferService.SendingFileStarted += UpdateState;
 		GlobalTransferService.SendingFileFailed += UpdateState;
 		GlobalTransferService.SendingFinishedSuccessfully += UpdateState;
+		GlobalTransferService.SendingStopped += UpdateState;
 
 		GlobalTransferService.ReceivingFileStarted += UpdateState;
 		GlobalTransferService.ReceivingFileEnded += UpdateState;
