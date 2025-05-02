@@ -31,7 +31,7 @@
 		</div>
 	</div>
 
-	@if (lts.ReceiverIp?.Equals(Device.IP) ?? false)
+	@if (lts.IsSending && (lts.ReceiverIp?.Equals(Device.IP) ?? false))
 	{
 		<div class="cancel-btn" @onclick="lts.StopSending">
 			<i class="ph ph-x-circle"></i>
