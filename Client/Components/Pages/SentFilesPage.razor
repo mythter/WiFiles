@@ -23,6 +23,12 @@
 			</RealButton>
 		}
 	}
+	@if (lts.IsSending || gts.IsSending)
+	{
+		<RealButton OnClick="@StopSending">
+			<i class="ph ph-x"></i>
+		</RealButton>
+	}
 	<RealButton Class="transparent left" OnClick="NavigationService.NavigateBack">
 		<i class="ph ph-arrow-left"></i>
 	</RealButton>
@@ -50,6 +56,19 @@
 
 	// needed to reload animation after rerender
 	private string uniqueSuffix = Guid.NewGuid().ToString();
+
+	private void StopSending()
+	{
+		if (lts.IsReceiving)
+		{
+			lts.StopSending();
+		}
+
+		if (gts.IsReceiving)
+		{
+			gts.StopSending();
+		}
+	}
 
 	private async Task RemoveFiles(bool removeAll = false)
 	{
