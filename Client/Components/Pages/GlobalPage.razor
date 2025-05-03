@@ -107,8 +107,8 @@
 
 	IJSObjectReference jsModule = null!;
 
-	[CascadingParameter(Name = "MessageBox")]
-	private MessageBox MessageBoxElement { get; set; } = null!;
+	[CascadingParameter(Name = "MessageBoxHost")]
+	private MessageBoxHost MessageBoxHostElement { get; set; } = null!;
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -216,7 +216,7 @@
 		{
 			logger.LogError(ex, "Error occured while connecting to the server.");
 
-			MessageBoxElement.ShowError("Cannot connect to the server.");
+			MessageBoxHostElement.ShowError("Cannot connect to the server.");
 		}
 	}
 
@@ -243,7 +243,7 @@
 		{
 			if (receiverId == gts.SessionId)
 			{
-				MessageBoxElement.ShowWarning("You can't send files to yourself");
+				MessageBoxHostElement.ShowWarning("You can't send files to yourself");
 				return;
 			}
 
@@ -251,7 +251,7 @@
 		}
 		else
 		{
-			MessageBoxElement.ShowWarning("Receiver ID is invalid");
+			MessageBoxHostElement.ShowWarning("Receiver ID is invalid");
 		}
 	}
 

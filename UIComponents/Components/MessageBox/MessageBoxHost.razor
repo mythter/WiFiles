@@ -1,0 +1,77 @@
+@using UIComponents.Models
+
+@foreach (var box in _messageBoxes)
+{
+	<MessageBox Model="box"
+				OnResult="@(result => SetResult(box, result))"
+				OnClose="@(() => Close(box))" />
+}
+
+
+@code {
+	private readonly List<MessageBoxModel> _messageBoxes = new();
+
+	public void ShowInfo(string text, string title = "Information")
+	{
+		Show(MessageType.Info, title, text, 1);
+	}
+
+	public void ShowWarning(string text, string title = "Warning")
+	{
+		Show(MessageType.Warning, title, text, 1);
+	}
+
+	public void ShowError(string text, string title = "Error occurred")
+	{
+		Show(MessageType.Error, title, text, 1);
+	}
+
+	public Task<bool> ShowRequest(string text, string title = "Request")
+	{
+		return ShowRequest(MessageType.Request, title, text);
+	}
+
+	private Task<bool> ShowRequest(MessageType type, string title, string message, int buttonsCount = 2, bool isModal = true)
+	{
+		var model = new MessageBoxModel
+			{
+				Type = type,
+				Title = title,
+				Message = message,
+				ButtonsCount = buttonsCount,
+				CompletionSource = new TaskCompletionSource<bool>(),
+				IsModal = isModal,
+			};
+
+		_messageBoxes.Add(model);
+		InvokeAsync(StateHasChanged);
+		return model.CompletionSource.Task;
+	}
+
+	private void Show(MessageType type, string title, string message, int buttonsCount = 1, bool isModal = false)
+	{
+		var model = new MessageBoxModel
+			{
+				Type = type,
+				Title = title,
+				Message = message,
+				ButtonsCount = buttonsCount,
+				IsModal = isModal,
+			};
+
+		_messageBoxes.Add(model);
+		InvokeAsync(StateHasChanged);
+	}
+
+	private void SetResult(MessageBoxModel model, bool result = false)
+	{
+		model.CompletionSource?.TrySetResult(result);
+	}
+
+	private void Close(MessageBoxModel model)
+	{
+		_messageBoxes.Remove(model);
+		_messageBoxes.RemoveAll(b => !b.IsVisible);
+		InvokeAsync(StateHasChanged);
+	}
+}

@@ -43,8 +43,8 @@
 </div>
 
 @code {
-	[CascadingParameter(Name = "MessageBox")]
-	private MessageBox MessageBoxElement { get; set; } = null!;
+	[CascadingParameter(Name = "MessageBoxHost")]
+	private MessageBoxHost MessageBoxHostElement { get; set; } = null!;
 
 	private List<FileModel> SelectedFiles { get; set; } = new();
 
@@ -55,7 +55,7 @@
 	{
 		if (lts.IsSending  || gts.IsSending)
 		{
-			MessageBoxElement.ShowWarning("You can't add files to list while sending in progress.");
+			MessageBoxHostElement.ShowWarning("You can't add files to list while sending in progress.");
 			return;
 		}
 
@@ -82,7 +82,7 @@
 
 		if (notReadableFiles.Length > 0)
 		{
-			MessageBoxElement.ShowError(
+			MessageBoxHostElement.ShowError(
 				"Some files you selected cannot be read and hence cannot be sent:\n" +
 				notReadableFiles.ToString(),
 				"Files cannot be read");
@@ -93,7 +93,7 @@
 	{
 		if (lts.IsSending || gts.IsSending)
 		{
-			MessageBoxElement.ShowWarning("You can't remove files from list while sending in progress.");
+			MessageBoxHostElement.ShowWarning("You can't remove files from list while sending in progress.");
 			return;
 		}
 

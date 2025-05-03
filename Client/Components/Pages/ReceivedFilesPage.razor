@@ -61,8 +61,8 @@
 </div>
 
 @code {
-	[CascadingParameter(Name = "MessageBox")]
-	public MessageBox MessageBoxElement { get; set; } = null!;
+	[CascadingParameter(Name = "MessageBoxHost")]
+	public MessageBoxHost MessageBoxHostElement { get; set; } = null!;
 
 	private List<FileTransferModel> SelectedFiles { get; set; } = new();
 
@@ -112,7 +112,7 @@
 
 		if (!StorageService.CheckIfDirectoryWritable(path))
 		{
-			MessageBoxElement.ShowError(
+			MessageBoxHostElement.ShowError(
 				"Saving to the selected folder is not currently supported. Please select another folder.",
 				"Destination folder not supported");
 			return;
@@ -141,7 +141,7 @@
 	{
 		if (lts.IsReceiving)
 		{
-			MessageBoxElement.ShowWarning("Please wait until the receiving is complete.");
+			MessageBoxHostElement.ShowWarning("Please wait until the receiving is complete.");
 			return;
 		}
 

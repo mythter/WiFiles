@@ -10,7 +10,7 @@
 @inject LocalTransferService LocalTransferService
 @inject GlobalTransferService GlobalTransferService
 
-<CascadingValue Value="@MessageBoxElement" Name="MessageBox">
+<CascadingValue Value="@MessageBoxHostElement" Name="MessageBoxHost">
 	<div class="page">
 		<main class="main">
 			@Body
@@ -42,11 +42,11 @@
 	</div>
 </CascadingValue>
 
-<MessageBox @ref="MessageBoxElement"></MessageBox>
+<MessageBoxHost @ref="MessageBoxHostElement" />
 
 @code {
 
-	private MessageBox MessageBoxElement = null!;
+	private MessageBoxHost MessageBoxHostElement = null!;
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -155,13 +155,13 @@
 	{
 		if (request is LocalRequestModel localRequest)
 		{
-			return MessageBoxElement.ShowRequest(
+			return MessageBoxHostElement.ShowRequest(
 				$"Sender with IP {localRequest.Sender.IP} wants to send you {localRequest.Files.Count} file(s). Accept the request?",
 					"Request to send files");
 		}
 		else if (request is GlobalRequestModel globalRequest)
 		{
-			return MessageBoxElement.ShowRequest(
+			return MessageBoxHostElement.ShowRequest(
 				$"Sender {globalRequest.SenderSessionId} wants to send you {globalRequest.Files.Count} file(s). Accept the request?",
 					"Request to send files");
 		}
@@ -171,42 +171,42 @@
 
 	private void ShowError(object? sender, string message)
 	{
-		MessageBoxElement.ShowError(message);
+		MessageBoxHostElement.ShowError(message);
 	}
 
 	private void OnSessionIdDoesNotExist(object? _, long sessionId)
 	{
-		MessageBoxElement.ShowWarning($"No client exists with the following session ID: {sessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)}", "Client does not exist");
+		MessageBoxHostElement.ShowWarning($"No client exists with the following session ID: {sessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)}", "Client does not exist");
 	}
 
 	private void OnReceivingFinishedSuccessfully(object? sender, EventArgs e)
 	{
-		MessageBoxElement.ShowInfo("All files received successfully.", "Receiving finished");
+		MessageBoxHostElement.ShowInfo("All files received successfully.", "Receiving finished");
 	}
 
 	private void OnSendingFinishedSuccessfully(object? sender, EventArgs e)
 	{
-		MessageBoxElement.ShowInfo("All files sent successfully.", "Sending finished");
+		MessageBoxHostElement.ShowInfo("All files sent successfully.", "Sending finished");
 	}
 
 	private void OnReceivingCancelled(object? sender, EventArgs e)
 	{
-		MessageBoxElement.ShowInfo("Receiver cancelled the transfer.", "Transfer stopped");
+		MessageBoxHostElement.ShowInfo("Receiver cancelled the transfer.", "Transfer stopped");
 	}
 
 	private void OnSendingCancelled(object? sender, EventArgs e)
 	{
-		MessageBoxElement.ShowInfo("Sender cancelled the transfer.", "Transfer stopped");
+		MessageBoxHostElement.ShowInfo("Sender cancelled the transfer.", "Transfer stopped");
 	}
 
 	private void OnReceiverDisconnected(object? sender, EventArgs e)
 	{
-		MessageBoxElement.ShowInfo("Receiver disconnected.", "Transfer stopped");
+		MessageBoxHostElement.ShowInfo("Receiver disconnected.", "Transfer stopped");
 	}
 
 	private void OnSenderDisconnected(object? sender, EventArgs e)
 	{
-		MessageBoxElement.ShowInfo("Sender disconnected.", "Transfer stopped");
+		MessageBoxHostElement.ShowInfo("Sender disconnected.", "Transfer stopped");
 	}
 
 	private void UpdateCache(object? sender, FileTransferModel file)

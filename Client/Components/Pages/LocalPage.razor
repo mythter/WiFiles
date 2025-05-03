@@ -85,8 +85,8 @@
 
 	public bool UseEncryption { get; set; }
 
-	[CascadingParameter(Name = "MessageBox")]
-	private MessageBox MessageBoxElement { get; set; } = null!;
+	[CascadingParameter(Name = "MessageBoxHost")]
+	private MessageBoxHost MessageBoxHostElement { get; set; } = null!;
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -148,7 +148,7 @@
 	{
 		if (!StorageService.CheckIfDirectoryWritable(StorageService.SaveFolder))
 		{
-			MessageBoxElement.ShowError(
+			MessageBoxHostElement.ShowError(
 				"Saving to the selected folder is not currently supported. Please select another folder.",
 				"Destination folder not supported");
 			return;
@@ -166,7 +166,7 @@
 	{
 		if (StorageService.SelectedFiles.Count == 0)
 		{
-			MessageBoxElement.ShowWarning("You have no files to send.");
+			MessageBoxHostElement.ShowWarning("You have no files to send.");
 			return;
 		}
 
