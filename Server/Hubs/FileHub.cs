@@ -81,7 +81,7 @@ namespace Server.Hubs
 					bool senderCancelled = false;
 					try
 					{
-						await foreach (var chunk in stream)
+						await foreach (var chunk in stream.WithCancellation(session.CancellationTokenSource.Token))
 						{
 							await channel.Writer.WriteAsync(chunk, session.CancellationTokenSource.Token);
 						}
@@ -108,8 +108,13 @@ namespace Server.Hubs
 						var res = channel.Writer.TryComplete(exception);
 						logger.LogInformation("SendFile Channel writer completed: {IsChannelWriterCompleted}", res);
 
-						// close seesion when exception occurred
-						if (exception is not null)
+						if (exception is not null && !session.CancellationTokenSource.Token.IsCancellationRequested)
+						{
+							await session.CancellationTokenSource.CancelAsync();
+						}
+
+						// close session when exception occurred or the transfer was cancelled
+						if (exception is not null || session.CancellationTokenSource.Token.IsCancellationRequested)
 						{
 							await sessionManager.RemoveBySenderAsync(Context.ConnectionId);
 
@@ -149,7 +154,7 @@ namespace Server.Hubs
 			if (session is not null && channel is not null)
 			{
 				using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.CancellationTokenSource.Token);
-				byte[]? result = null;
+				byte[] result;
 				bool hasResult = true;
 				Exception? exception = null;
 				bool receiverCancelled = false;
@@ -158,7 +163,7 @@ namespace Server.Hubs
 					try
 					{
 						await channel.Reader.WaitToReadAsync(linkedTokenSource.Token);
-						hasResult = channel.Reader.TryRead(out result);
+						hasResult = channel.Reader.TryRead(out result!);
 					}
 					catch (OperationCanceledException ex) when (Context.ConnectionAborted.IsCancellationRequested)
 					{
@@ -182,12 +187,12 @@ namespace Server.Hubs
 					}
 					finally
 					{
-						if (exception is not null || isLast)
+						if (exception is not null || (isLast && !hasResult))
 						{
-							// we need to stop writing when receiver stopped reading or exception occurred
+							// stop writing when receiver stopped reading or exception occurred
 							if (exception is not null)
 							{
-								channel.Writer.TryComplete(exception);
+								await session.CancellationTokenSource.CancelAsync();
 
 								if (!receiverCancelled)
 								{
@@ -205,7 +210,7 @@ namespace Server.Hubs
 						}
 					}
 
-					if (hasResult && result is not null)
+					if (hasResult)
 					{
 						yield return result;
 					}
@@ -229,7 +234,7 @@ namespace Server.Hubs
 			string connectionId = Context.ConnectionId;
 			long? sessionId = connectionManager.GetByConnectionId(connectionId);
 
-			logger.LogInformation("User DISCONNECTED with connectionId: {ConnectionId}, sessionId: {SessionId}", connectionId, sessionId);
+			logger.LogError(exception, "User DISCONNECTED with connectionId: {ConnectionId}, sessionId: {SessionId}", connectionId, sessionId);
 
 			await sessionManager.LockAsync();
 			try
