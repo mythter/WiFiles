@@ -1,5 +1,6 @@
 ﻿@using System.Net
 @using Domain.Enums
+@using Domain.Models.Exceptions
 @inject IJSRuntime js
 @inject LocalTransferService lts
 @implements IDisposable
@@ -61,7 +62,7 @@
 		lts.SendingStopped += OnSendingStopped;
 	}
 
-	private void OnSendingStopped(object? sender, EventArgs eventArgs)
+	private void OnSendingStopped(object? sender, HandledException? ex)
 	{
 		IsSendBtnVisible = false;
 		InvokeAsync(StateHasChanged);

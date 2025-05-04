@@ -1,6 +1,7 @@
 ﻿@page "/sent-files"
 @using System.Text
 @using Client.Constants
+@using Domain.Models.Exceptions
 @inject NavigationService NavigationService
 @inject ILocalStorageService localStorage
 @inject IStorageService StorageService
@@ -62,11 +63,11 @@
 	{
 		lts.SendingFileStarted += UpdateState;
 		lts.SendingFileFailed += UpdateState;
-		lts.SendingStopped += UpdateState;
+		lts.SendingStopped += OnSendingStopped;
 
 		gts.SendingFileStarted += UpdateState;
 		gts.SendingFileFailed += UpdateState;
-		gts.SendingStopped += UpdateState;
+		gts.SendingStopped += OnSendingStopped;
 	}
 
 	private void UpdateState<T>(object? sender, T _)
@@ -118,6 +119,13 @@
 		{
 			SelectedFiles.Add(file);
 		}
+	}
+
+	private void OnSendingStopped(object? sender, HandledException? ex)
+	{
+		SelectedFiles.RemoveAll(f => !StorageService.SentFiles.Contains(f));
+
+		InvokeAsync(StateHasChanged);
 	}
 
 	public void Dispose()

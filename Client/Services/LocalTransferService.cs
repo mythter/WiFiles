@@ -10,6 +10,7 @@ using Client.Interfaces;
 using Domain.Enums;
 using Domain.Models.Device;
 using Domain.Models.Encryptions;
+using Domain.Models.Exceptions;
 using Domain.Models.File;
 using Domain.Models.Request;
 using Domain.Models.Response;
@@ -38,20 +39,20 @@ namespace Client.Services
 		public event EventHandler<FileTransferModel>? ReceivingFileEnded;
 		public event EventHandler<string>? ReceivingFileFailed;
 
-		public event EventHandler? ReceivingStopped;
+		public event EventHandler<HandledException?>? ReceivingStopped;
 		public event EventHandler? ReceivingFinishedSuccessfully;
 
 		public event EventHandler<FileTransferModel>? SendingFileStarted;
 		public event EventHandler<FileTransferModel>? SendingFileEnded;
 		public event EventHandler<string>? SendingFileFailed;
 
-		public event EventHandler? SendingStopped;
+		public event EventHandler<HandledException?>? SendingStopped;
 		public event EventHandler? SendingFinishedSuccessfully;
 
 		public event EventHandler? ListeningStarted;
 		public event EventHandler? ListeningStopped;
 
-		public event EventHandler<string>? ExceptionHandled;
+		public event EventHandler<HandledException>? ExceptionHandled;
 
 		public Func<LocalRequestModel, Task<bool>>? OnSendFilesRequest { get; set; }
 
@@ -79,6 +80,8 @@ namespace Client.Services
 
 			ECDiffieHellman? ecdh = null;
 			Encryption? encryption = null;
+
+			HandledException? exception = null;
 
 			try
 			{
@@ -136,16 +139,16 @@ namespace Client.Services
 			catch (Exception ex) when (ex is SocketException sex1 && (sex1.SocketErrorCode is SocketError.Shutdown or SocketError.ConnectionReset or SocketError.ConnectionAborted) ||
 									   ex is IOException && ex.InnerException is SocketException sex2 && (sex2.SocketErrorCode is SocketError.Shutdown or SocketError.ConnectionReset or SocketError.ConnectionAborted))
 			{
-				ExceptionHandled?.Invoke(this, "It seems the receiver cancelled the operation.");
+				exception = new HandledException(ex, "It seems the receiver cancelled the operation.");
 			}
-			catch (TimeoutException)
+			catch (TimeoutException ex)
 			{
-				ExceptionHandled?.Invoke(this, "Sending cancelled due to timeout.");
+				exception = new HandledException(ex, "Sending cancelled due to timeout.");
 			}
 			catch (OperationCanceledException ex) when (!ClientTokenSource.IsCancellationRequested)
 			{
-				// if operation cancelled not by us show error message
-				ExceptionHandled?.Invoke(this, ex.Message);
+				// show error if the operation was cancelled not by us 
+				exception = new HandledException(ex);
 			}
 			catch (OperationCanceledException)
 			{
@@ -153,7 +156,7 @@ namespace Client.Services
 			}
 			catch (Exception ex)
 			{
-				ExceptionHandled?.Invoke(this, ex.Message);
+				exception = new HandledException(ex);
 			}
 			finally
 			{
@@ -164,7 +167,7 @@ namespace Client.Services
 
 				ReceiverIp = null;
 				IsSending = false;
-				SendingStopped?.Invoke(this, EventArgs.Empty);
+				SendingStopped?.Invoke(this, exception);
 
 				ecdh?.Dispose();
 			}
@@ -395,7 +398,8 @@ namespace Client.Services
 			}
 			catch (Exception ex)
 			{
-				ExceptionHandled?.Invoke(this, ex.Message);
+				var exception = new HandledException(ex);
+				ExceptionHandled?.Invoke(this, exception);
 			}
 			finally
 			{
@@ -476,6 +480,8 @@ namespace Client.Services
 				return;
 			}
 
+			HandledException? exception = null;
+
 			try
 			{
 				if (string.IsNullOrEmpty(_storageService.SaveFolder))
@@ -490,9 +496,9 @@ namespace Client.Services
 
 				ReceivingFinishedSuccessfully?.Invoke(this, EventArgs.Empty);
 			}
-			catch (TimeoutException)
+			catch (TimeoutException ex)
 			{
-				ExceptionHandled?.Invoke(this, "Receiving cancelled due to timeout.");
+				exception = new HandledException(ex, "Receiving cancelled due to timeout.");
 			}
 			catch (IOException ex) when (ex.InnerException is SocketException sex)
 			{
@@ -507,19 +513,19 @@ namespace Client.Services
 					message = "Connection lost.";
 				}
 
-				ExceptionHandled?.Invoke(this, message);
+				exception = new HandledException(ex, message);
 			}
 			catch (OperationCanceledException ex)
 			{
 				// if operation cancelled not by user show error message
 				if (IsReceiving)
 				{
-					ExceptionHandled?.Invoke(this, ex.Message);
+					exception = new HandledException(ex);
 				}
 			}
 			catch (Exception ex)
 			{
-				ExceptionHandled?.Invoke(this, ex.Message);
+				exception = new HandledException(ex);
 			}
 			finally
 			{
@@ -530,7 +536,7 @@ namespace Client.Services
 				aes?.Dispose();
 
 				tcpClient.Close();
-				ReceivingStopped?.Invoke(this, EventArgs.Empty);
+				ReceivingStopped?.Invoke(this, exception);
 			}
 		}
 

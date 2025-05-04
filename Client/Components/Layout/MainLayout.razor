@@ -1,5 +1,6 @@
 ﻿@using System.Net
 @using Client.Constants
+@using Domain.Models.Exceptions
 @using Domain.Models.Request
 @inherits LayoutComponentBase
 @inject NavigationService NavigationService
@@ -16,8 +17,7 @@
 			@Body
 		</main>
 
-		@if (NavigationManager.Uri.Contains("/local") ||
-			 NavigationManager.Uri.Contains("/global"))
+		@if (NavigationManager.Uri.Contains("/local") || NavigationManager.Uri.Contains("/global"))
 		{
 			<div class="menu">
 				<div class="nav">
@@ -60,11 +60,13 @@
 		LocalTransferService.SendingFileStarted += AddSendingFile;
 		LocalTransferService.SendingFileFailed += RemoveSendingFile;
 		LocalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
+		LocalTransferService.SendingStopped += OnError;
 
 		LocalTransferService.ReceivingFileStarted += AddReceivingFile;
 		LocalTransferService.ReceivingFileEnded += UpdateCache;
 		LocalTransferService.ReceivingFileFailed += RemoveReceivingFile;
 		LocalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
+		LocalTransferService.ReceivingStopped += OnError;
 
 		LocalTransferService.ExceptionHandled += ShowError;
 
@@ -79,17 +81,21 @@
 		GlobalTransferService.SendingFileStarted += AddSendingFile;
 		GlobalTransferService.SendingFileFailed += RemoveSendingFile;
 		GlobalTransferService.SendingFinishedSuccessfully += OnSendingFinishedSuccessfully;
+		GlobalTransferService.SendingStopped += OnError;
 
 		GlobalTransferService.ReceivingFileStarted += AddReceivingFile;
 		GlobalTransferService.ReceivingFileEnded += UpdateCache;
 		GlobalTransferService.ReceivingFileFailed += RemoveReceivingFile;
 		GlobalTransferService.ReceivingFinishedSuccessfully += OnReceivingFinishedSuccessfully;
+		GlobalTransferService.ReceivingStopped += OnError;
 
 		GlobalTransferService.ReceivingCancelled += OnReceivingCancelled;
 		GlobalTransferService.SendingCancelled += OnSendingCancelled;
 
 		GlobalTransferService.ReceiverDisconnected += OnReceiverDisconnected;
 		GlobalTransferService.SenderDisconnected += OnSenderDisconnected;
+
+		GlobalTransferService.Disconnected += OnError;
 
 		#endregion
 
@@ -169,9 +175,17 @@
 		return Task.FromResult(false);
 	}
 
-	private void ShowError(object? sender, string message)
+	private void ShowError(object? sender, HandledException ex)
 	{
-		MessageBoxHostElement.ShowError(message);
+		MessageBoxHostElement.ShowError(ex.Message);
+	}
+
+	private void OnError(object? sender, HandledException? ex)
+	{
+		if (ex is not null)
+	{
+			MessageBoxHostElement.ShowError(ex.Message);
+		}
 	}
 
 	private void OnSessionIdDoesNotExist(object? _, long sessionId)

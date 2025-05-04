@@ -116,7 +116,10 @@ namespace Server.Hubs
 							if (!senderCancelled)
 							{
 								logger.LogInformation("Sending Aborted");
-								await Clients.Client(session.SenderConnectionId).SendAsync(ServerConstants.FileHub.SendingAborted);
+								await Clients.Client(session.SenderConnectionId).SendAsync(ServerConstants.FileHub.SendingAborted, 
+									exception is null 
+										? null 
+										: new { exception.Message, Type = exception.GetType().Name });
 							}
 						}
 					}
@@ -189,7 +192,11 @@ namespace Server.Hubs
 								if (!receiverCancelled)
 								{
 									logger.LogInformation("Receiving Aborted");
-									await Clients.Client(session.ReceiverConnectionId).SendAsync(ServerConstants.FileHub.ReceivingAborted);
+									await Clients.Client(session.ReceiverConnectionId).SendAsync(ServerConstants.FileHub.ReceivingAborted, new
+									{
+										exception.Message,
+										Type = exception.GetType().Name
+									});
 								}
 							}
 
@@ -231,11 +238,11 @@ namespace Server.Hubs
 				{
 					if (session.SenderConnectionId == connectionId)
 					{
-						await Clients.Client(session.ReceiverConnectionId).SendAsync(ServerConstants.FileHub.SenderDisconnected);
+						await Clients.Client(session.ReceiverConnectionId).SendAsync(ServerConstants.FileHub.SenderDisconnected, exception);
 					}
 					else
 					{
-						await Clients.Client(session.SenderConnectionId).SendAsync(ServerConstants.FileHub.ReceiverDisconnected);
+						await Clients.Client(session.SenderConnectionId).SendAsync(ServerConstants.FileHub.ReceiverDisconnected, exception);
 					}
 				}
 			}

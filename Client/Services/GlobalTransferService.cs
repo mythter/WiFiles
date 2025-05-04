@@ -6,6 +6,7 @@ using Client.Interfaces;
 using Domain.Enums;
 using Domain.Models.Device;
 using Domain.Models.Encryptions;
+using Domain.Models.Exceptions;
 using Domain.Models.File;
 using Domain.Models.Request;
 using Domain.Models.Response;
@@ -50,7 +51,7 @@ namespace Client.Services
 
 		public HubConnectionState ConnectionState => _connection?.State ?? HubConnectionState.Disconnected;
 
-		public event EventHandler? Disconnected;
+		public event EventHandler<HandledException?>? Disconnected;
 
 		public event EventHandler<long>? Connected;
 
@@ -66,10 +67,10 @@ namespace Client.Services
 		public event EventHandler<FileTransferModel>? SendingFileEnded;
 		public event EventHandler<string>? SendingFileFailed;
 
-		public event EventHandler? ReceivingStopped;
+		public event EventHandler<HandledException?>? ReceivingStopped;
 		public event EventHandler? ReceivingFinishedSuccessfully;
 
-		public event EventHandler? SendingStopped;
+		public event EventHandler<HandledException?>? SendingStopped;
 		public event EventHandler? SendingFinishedSuccessfully;
 
 		public event EventHandler? ReceivingCancelled;
@@ -109,7 +110,7 @@ namespace Client.Services
 			}
 			catch (Exception)
 			{
-				Disconnected?.Invoke(this, EventArgs.Empty);
+				Disconnected?.Invoke(this, null);
 				throw;
 			}
 		}
@@ -153,21 +154,21 @@ namespace Client.Services
 			SendingStarted?.Invoke(this, EventArgs.Empty);
 		}
 
-		public void StopSending()
+		public void StopSending(HandledException? exception = null)
 		{
 			if (IsSending)
 			{
 				ResetSending();
-				SendingStopped?.Invoke(this, EventArgs.Empty);
+				SendingStopped?.Invoke(this, exception);
 			}
 		}
 
-		public void StopReceiving()
+		public void StopReceiving(HandledException? exception = null)
 		{
 			if (IsReceiving)
 			{
 				ResetReceiving();
-				ReceivingStopped?.Invoke(this, EventArgs.Empty);
+				ReceivingStopped?.Invoke(this, exception);
 			}
 		}
 
@@ -198,8 +199,7 @@ namespace Client.Services
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error while sending the request");
-				StopSending();
+				StopSending(new HandledException(ex, "Error while sending the request"));
 			}
 			finally
 			{
@@ -239,22 +239,15 @@ namespace Client.Services
 
 		private Task OnConnectionClosed(Exception? ex)
 		{
+			var exception = ex is null ? null : new HandledException(ex, "Connection to the server closed abnormally");
+
 			SessionId = 0;
 			_serverUrl = null;
 
-			StopSending();
-			StopReceiving();
+			StopSending(exception);
+			StopReceiving(exception);
 
-			if (ex is not null)
-			{
-				_logger.LogError(ex, "Connection to the server closed abnormally");
-			}
-			else
-			{
-				_logger.LogError("Connection to the server closed abnormally");
-			}
-
-			Disconnected?.Invoke(this, EventArgs.Empty);
+			Disconnected?.Invoke(this, exception);
 
 			return Task.CompletedTask;
 		}
@@ -355,9 +348,15 @@ namespace Client.Services
 				{
 					SendTokenSource = new CancellationTokenSource();
 
+					HandledException? exception = null;
+
 					try
 					{
 						await SendFilesAsync(FilesToSend, SendRequest.Files, response.Receiver, aes, SendTokenSource.Token);
+					}
+					catch(Exception ex)
+					{
+						exception = new HandledException(ex);
 					}
 					finally
 					{
@@ -366,7 +365,7 @@ namespace Client.Services
 
 						aes?.Dispose();
 
-						StopSending();
+						StopSending(exception);
 					}
 				});
 			}
@@ -593,11 +592,8 @@ namespace Client.Services
 		{
 			connection.On<long>(ServerConstants.FileHub.HubConnected, OnConnected);
 
-			connection.On(ServerConstants.FileHub.ReceiverDisconnected, OnReceiverDisconnected);
-			connection.On(ServerConstants.FileHub.ReceiverDisconnected, StopSending);
-
-			connection.On(ServerConstants.FileHub.SenderDisconnected, OnSenderDisconnected);
-			connection.On(ServerConstants.FileHub.SenderDisconnected, StopReceiving);
+			connection.On<Exception?>(ServerConstants.FileHub.ReceiverDisconnected, OnReceiverDisconnected);
+			connection.On<Exception?>(ServerConstants.FileHub.SenderDisconnected, OnSenderDisconnected);
 
 			connection.Closed += OnConnectionClosed;
 		}
@@ -605,7 +601,6 @@ namespace Client.Services
 		private void ListenRequests(HubConnection connection)
 		{
 			connection.On<GlobalRequestModel>(ServerConstants.FileHub.ReceiveRequest, OnReceiveRequest);
-
 			connection.On<GlobalResponseModel>(ServerConstants.FileHub.ReceiveResponse, OnReceiveResponse);
 
 			connection.On<long>(ServerConstants.FileHub.SessionIdDoesNotExist, OnSessionIdDoesNotExist);
@@ -617,24 +612,42 @@ namespace Client.Services
 
 			connection.On(ServerConstants.FileHub.SendingCancelled, OnSendingCancelled);
 
-			connection.On(ServerConstants.FileHub.SendingAborted, StopReceiving);
-			connection.On(ServerConstants.FileHub.ReceivingAborted, StopSending);
+			connection.On<Exception?>(ServerConstants.FileHub.SendingAborted, OnSendingAborted);
+			connection.On<Exception?>(ServerConstants.FileHub.ReceivingAborted, OnReceivingAborted);
 		}
 
 		private void OnSessionIdDoesNotExist(long sessionId)
 		{
-			StopSending();
 			SessionIdDoesNotExist?.Invoke(this, sessionId);
+			StopSending();
 		}
 
-		private void OnReceiverDisconnected()
+		private void OnSendingAborted(Exception? ex)
+		{
+			var exception = ex is null ? null : new HandledException(ex);
+			StopReceiving(exception);
+		}
+
+		private void OnReceivingAborted(Exception? ex)
+		{
+			var exception = ex is null ? null : new HandledException(ex);
+			StopSending(exception);
+		}
+
+		private void OnReceiverDisconnected(Exception? ex)
 		{
 			ReceiverDisconnected?.Invoke(this, EventArgs.Empty);
+
+			var exception = ex is null ? null : new HandledException(ex);
+			StopSending(exception);
 		}
 
-		private void OnSenderDisconnected()
+		private void OnSenderDisconnected(Exception? ex)
 		{
 			SenderDisconnected?.Invoke(this, EventArgs.Empty);
+
+			var exception = ex is null ? null : new HandledException(ex);
+			StopReceiving(exception);
 		}
 
 		private void OnReceivingCancelled()
