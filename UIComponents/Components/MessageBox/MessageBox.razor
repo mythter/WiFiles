@@ -5,7 +5,7 @@
 	string isVisible = Model.IsVisible ? "appearing" : "hidden disappearing";
 }
 
-<div class="message-container @isVisible" @onclick="@(() => { if (!Model.IsModal) Close(); } )" @ref="ElementContainer">
+<div class="message-container @isVisible" @onclick="@(() => { if (!Model.IsModal) Close(); } )" @ref="ElementContainer" @onclick:stopPropagation="true">
 	<div class="message" @onclick:stopPropagation="true">
 		<div class="title">
 			<div class="title-icon @GetTitleClass()">
@@ -17,7 +17,7 @@
 		</div>
 		<div class="message-text-area">
 			<div class="message-text">
-				@Model.Message
+				@((MarkupString?)(Model.Message ?? ""))
 			</div>
 		</div>
 		<div class="buttons">
