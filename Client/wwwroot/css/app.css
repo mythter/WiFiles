@@ -1,37 +1,50 @@
 ﻿* {
-    margin: 0;
-    padding: 0;
-    user-select: none;
-    font-family: 'Inter', sans-serif;
+	margin: 0;
+	padding: 0;
+	user-select: none;
+	font-family: 'Inter', sans-serif;
 }
 
-    *:focus {
-        outline: none;
-    }
+	*:focus {
+		outline: none;
+	}
 
 #app, html, body {
-    height: 100vh;
+	height: 100vh;
 }
 
 .running-text {
-    animation: moving infinite linear alternate;
-    animation-delay: 3s;
+	animation: moving infinite linear alternate;
+	animation-delay: 3s;
 }
 
 @keyframes moving {
-    from {
-        transform: translateX(0%);
-    }
+	from {
+		transform: translateX(0%);
+	}
 
-    to {
-        transform: translateX(calc(-100% + var(--container-width)));
-    }
+	to {
+		transform: translateX(calc(-100% + var(--container-width)));
+	}
 }
 
 .left {
-    margin-right: auto;
+	margin-right: auto;
 }
 
 .right {
-    margin-left: auto;
+	margin-left: auto;
+}
+
+.encryption-on,
+.encryption-off {
+	font-weight: bold;
+}
+
+.encryption-on {
+	color: green;
+}
+
+.encryption-off {
+	color: red;
 }

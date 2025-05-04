@@ -127,17 +127,24 @@
 
 	private Task<bool> ShowRequest<T>(RequestModel<T> request) where T: DeviceModel
 	{
+		var withOrWithoutEncryption = request.Encryption is null
+					? "<span class='encryption-off'>without encryption</span>"
+					: "<span class='encryption-on'>with encryption</span>";
+
+		var senderName = $"<b>{request.Sender.ToString()}</b>";
+
 		if (request is LocalRequestModel localRequest)
 		{
 			return MessageBoxHostElement.ShowRequest(
-				$"Sender with IP {localRequest.Sender.IP} wants to send you {localRequest.Files.Count} file(s). Accept the request?",
-					"Request to send files");
+				$"Sender {senderName} with IP <b>{localRequest.Sender.IP}</b> wants to send you {localRequest.Files.Count} file(s) {withOrWithoutEncryption}. Accept the request?",
+				"Request to send files");
 		}
 		else if (request is GlobalRequestModel globalRequest)
 		{
 			return MessageBoxHostElement.ShowRequest(
-				$"Sender {globalRequest.SenderSessionId} wants to send you {globalRequest.Files.Count} file(s). Accept the request?",
-					"Request to send files");
+				$"Sender {senderName} with ID <b>{globalRequest.SenderSessionId.ToString(GlobalTransferConstants.SessionIdWithWhiteSpacesFormatTemplate)}</b> "
+				+ $"wants to send you {globalRequest.Files.Count} file(s) {withOrWithoutEncryption}. Accept the request?",
+				"Request to send files");
 		}
 
 		return Task.FromResult(false);
@@ -151,7 +158,7 @@
 	private void OnError(object? sender, HandledException? ex)
 	{
 		if (ex is not null)
-	{
+		{
 			MessageBoxHostElement.ShowError(ex.Message);
 		}
 	}
