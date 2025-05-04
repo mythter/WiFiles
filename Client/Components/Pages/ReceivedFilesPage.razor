@@ -13,7 +13,7 @@
 	<RealButton OnClick="@PickFolder">
 		<i class="ph ph-folder-notch"></i>
 	</RealButton>
-	@if (!lts.IsReceiving && !gts.IsReceiving)
+	@if (!IsReceiving)
 	{
 		@if (SelectedFiles.Count > 0)
 		{
@@ -28,7 +28,7 @@
 			</RealButton>
 		}
 	}
-	@if (lts.IsReceiving || gts.IsReceiving)
+	@if (IsReceiving)
 	{
 		<RealButton OnClick="@StopReceiving">
 			<i class="ph ph-x"></i>
@@ -66,6 +66,8 @@
 
 	private List<FileTransferModel> SelectedFiles { get; set; } = new();
 
+	public bool IsReceiving => lts.IsReceiving || gts.IsReceiving;
+
 	// needed to reload animation after rerender
 	private string uniqueSuffix = Guid.NewGuid().ToString();
 
@@ -77,6 +79,7 @@
 	protected override void OnInitialized()
 	{
 		lts.ReceivingStopped += OnReceivingStopped;
+		gts.ReceivingStopped += OnReceivingStopped;
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -132,11 +135,6 @@
 		InvokeAsync(StateHasChanged);
 	}
 
-	public void Dispose()
-	{
-		lts.ReceivingStopped -= OnReceivingStopped;
-	}
-
 	private async Task RemoveFiles(bool removeAll = false)
 	{
 		if (lts.IsReceiving)
@@ -174,5 +172,11 @@
 		{
 			SelectedFiles.Add(file);
 		}
+	}
+
+	public void Dispose()
+	{
+		lts.ReceivingStopped -= OnReceivingStopped;
+		gts.ReceivingStopped -= OnReceivingStopped;
 	}
 }

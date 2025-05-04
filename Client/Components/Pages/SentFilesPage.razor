@@ -6,28 +6,29 @@
 @inject IStorageService StorageService
 @inject LocalTransferService lts
 @inject GlobalTransferService gts
+@implements IDisposable
 
 <Header>
-	@if (!lts.IsSending && !gts.IsSending)
+	@if (!IsSending)
 	{
 		@if (SelectedFiles.Count > 0)
 		{
-			<BadgeButton OnClick="@(async () => await RemoveFiles())" Count="SelectedFiles.Count">
-				<i class="ph ph-trash"></i>
-			</BadgeButton>
+					<BadgeButton OnClick="@(async () => await RemoveFiles())" Count="SelectedFiles.Count">
+						<i class="ph ph-trash"></i>
+					</BadgeButton>
 		}
 		else if (StorageService.SentFiles.Count > 0)
 		{
-			<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
-				<i class="ph ph-broom"></i>
-			</RealButton>
+					<RealButton OnClick="@(async () => await RemoveFiles(removeAll: true))">
+						<i class="ph ph-broom"></i>
+					</RealButton>
 		}
 	}
-	@if (lts.IsSending || gts.IsSending)
+	@if (IsSending)
 	{
-		<RealButton OnClick="@StopSending">
-			<i class="ph ph-x"></i>
-		</RealButton>
+			<RealButton OnClick="@StopSending">
+				<i class="ph ph-x"></i>
+			</RealButton>
 	}
 	<RealButton Class="transparent left" OnClick="NavigationService.NavigateBack">
 		<i class="ph ph-arrow-left"></i>
@@ -37,25 +38,41 @@
 <div class="files">
 	@foreach (var file in StorageService.SentFiles.Select((f, i) => new { File = f, Index = i }).Reverse())
 	{
-		<FileTransferComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileTransferComponent>
+			<FileTransferComponent @key="file.Index + uniqueSuffix" File="@file.File" OnClick="OnFileClick"></FileTransferComponent>
 	}
 
 	@if (StorageService.SentFiles.Count == 0)
 	{
-		<div class="message">
+			<div class="message">
 			@("You haven't sent any files yet")
-		</div>
+			</div>
 	}
 </div>
 
 @code {
-	[CascadingParameter(Name = "MessageBox")]
-	private MessageBox MessageBoxElement { get; set; } = null!;
 
 	private List<FileTransferModel> SelectedFiles { get; set; } = new();
 
+	public bool IsSending => lts.IsSending || gts.IsSending;
+
 	// needed to reload animation after rerender
 	private string uniqueSuffix = Guid.NewGuid().ToString();
+
+	protected override void OnInitialized()
+	{
+		lts.SendingFileStarted += UpdateState;
+		lts.SendingFileFailed += UpdateState;
+		lts.SendingStopped += UpdateState;
+
+		gts.SendingFileStarted += UpdateState;
+		gts.SendingFileFailed += UpdateState;
+		gts.SendingStopped += UpdateState;
+	}
+
+	private void UpdateState<T>(object? sender, T _)
+	{
+		InvokeAsync(StateHasChanged);
+	}
 
 	private void StopSending()
 	{
@@ -101,5 +118,16 @@
 		{
 			SelectedFiles.Add(file);
 		}
+	}
+
+	public void Dispose()
+	{
+		lts.SendingFileStarted -= UpdateState;
+		lts.SendingFileFailed -= UpdateState;
+		lts.SendingStopped -= UpdateState;
+
+		gts.SendingFileStarted -= UpdateState;
+		gts.SendingFileFailed -= UpdateState;
+		gts.SendingStopped -= UpdateState;
 	}
 }
