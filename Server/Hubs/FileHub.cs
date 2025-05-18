@@ -46,7 +46,7 @@ namespace Server.Hubs
 		{
 			logger.LogInformation("CANCEL SENDING from {ConnectionId}", Context.ConnectionId);
 
-			if (await sessionManager.GetBySenderConnectionId(Context.ConnectionId) is { } session)
+			if (await sessionManager.GetBySenderConnectionIdAsync(Context.ConnectionId) is { } session)
 			{
 				await session.CancellationTokenSource.CancelAsync();
 				await Clients.Client(session.ReceiverConnectionId).SendAsync(ServerConstants.FileHub.SendingCancelled);

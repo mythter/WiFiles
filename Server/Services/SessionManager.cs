@@ -20,7 +20,7 @@ namespace Server.Services
 			_semaphore.Release();
 		}
 
-		public async Task<Session?> GetBySenderConnectionId(string senderConnectionId)
+		public async Task<Session?> GetBySenderConnectionIdAsync(string senderConnectionId)
 		{
 			return await ReturnWithLockAsync(() =>
 			{
