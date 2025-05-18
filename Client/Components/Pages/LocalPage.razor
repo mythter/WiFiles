@@ -56,15 +56,20 @@
 
 		<div class="devices">
 			<div class="devices-area">
-				@foreach (var device in Devices)
+				@if (Devices.Count > 0)
 				{
-					<DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
+					@foreach (var device in Devices)
+					{
+						<DeviceComponent Device="@device" SendCallback="StartSending"></DeviceComponent>
+					}
+				}
+				else
+				{
+					<div class="message">
+						@(Message is null ? "No devices found" : Message)
+					</div>
 				}
 			</div>
-		</div>
-
-		<div class="message">
-			@Message
 		</div>
 
 	</div>
