@@ -11,24 +11,26 @@
 
 
 <div class="device" tabindex="0"
-@onclick="@(() => {
-		if(lts.ReceiverIp is null /*|| !TransferService.ReceiverIp.Equals(Ip)*/)
+	 @onclick="@(() => {
+		if (lts.ReceiverIp is null)
 		{
 			IsSendBtnVisible = true;
 		}
 	 })"
-@onfocusout="@(() => IsSendBtnVisible = false)">
+	 @onfocusout="@(() => IsSendBtnVisible = false)">
 
-	<div class="icon">
-		@((MarkupString)GetDeviceIcon())
-	</div>
-
-	<div class="info">
-		<div class="name">
-			@Device
+	<div class="device-info-area" @ref=ElementInfo>
+		<div class="icon">
+			@((MarkupString)GetDeviceIcon())
 		</div>
-		<div class="ip">
-			@Device.IP
+
+		<div class="info">
+			<div class="name" @ref=ElementName>
+				@Device
+			</div>
+			<div class="ip">
+				@Device.IP
+			</div>
 		</div>
 	</div>
 
@@ -40,10 +42,10 @@
 	}
 
 	<div class="send-btn @sendBtnClass"
-		@onclick="@(() => {
+		 @onclick="@(() => {
 			IsSendBtnVisible = false;
 			SendCallback.InvokeAsync(Device.IP);
-		})">
+		 })">
 		<i class="ph ph-arrow-fat-line-right"></i>
 	</div>
 </div>
@@ -57,9 +59,23 @@
 
 	public bool IsSendBtnVisible { get; set; }
 
+	IJSObjectReference jsModule = null!;
+
+	ElementReference ElementName;
+	ElementReference ElementInfo;
+
 	protected override void OnInitialized()
 	{
 		lts.SendingStopped += OnSendingStopped;
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			jsModule = await js.InvokeAsync<IJSObjectReference>("import", "/js/RunningTextAnimation.js");
+			await jsModule.InvokeVoidAsync("RunningTextAnimation.Init", ElementInfo, ElementName);
+		}
 	}
 
 	private void OnSendingStopped(object? sender, HandledException? ex)

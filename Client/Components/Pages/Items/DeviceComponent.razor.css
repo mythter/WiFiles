@@ -1,73 +1,97 @@
 ﻿.device {
-    color: #fff;
-    background-color: #393a5f;
-    height: 55px;
-    min-height: 50px;
-    padding: 8px;
-    gap: 10px;
-    border-radius: 5px;
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    overflow: hidden;
-    position: relative;
+	color: #fff;
+	--bg-color: #393a5f;
+	background-color: var(--bg-color);
+	height: 55px;
+	min-height: 50px;
+	border-radius: 5px;
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+	overflow: hidden;
+	position: relative;
 }
 
-    .device:hover {
-        background-color: #43456f;
-    }
+	.device:hover {
+		--bg-color: #43456f;
+	}
 
-    .device:focus-within {
-        background-color: #4f5182;
-    }
+	.device:focus-within {
+		--bg-color: #4f5182;
+	}
 
-    .device .icon {
-        font-size: 35px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
+	.device .device-info-area {
+		padding: 8px;
+		gap: 5px;
+		display: flex;
+		box-sizing: border-box;
+		align-items: center;
+		overflow: hidden;
+	}
 
-    .device .info {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
+	.device .icon {
+		font-size: 35px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
 
-        .device .info .name {
-            font-weight: 500;
-        }
+	.device .info {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		gap: 4px;
+		position: relative;
+		padding-left: 7px;
+		padding-right: 7px;
+	}
 
-        .device .info .ip {
-            font-size: 0.9em;
-            opacity: 0.7;
-            -webkit-font-feature-settings: "tnum";
-            font-feature-settings: "tnum";
-        }
+		.device .info::after {
+			content: "";
+			position: absolute;
+			pointer-events: none;
+			width: 100%;
+			background-image: linear-gradient(90deg, var(--bg-color) 0px, transparent 8px, transparent calc(100% - 8px), var(--bg-color) 100%);
+			height: 100%;
+			left: 0;
+			top: 0;
+		}
 
-    .device .send-btn {
-        background-color: #4a4b74;
-        height: 100%;
-        width: 50px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 25px;
-        position: absolute;
-        right: 0;
-    }
+		.device .info .name {
+			font-weight: 500;
+			width: max-content;
+		}
 
-    .device .cancel-btn {
-        height: 100%;
-        font-size: 20px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 50px;
-        box-sizing: border-box;
-        margin-left: auto;
-    }
+		.device .info .ip {
+			font-size: 0.9em;
+			opacity: 0.7;
+			-webkit-font-feature-settings: "tnum";
+			font-feature-settings: "tnum";
+		}
+
+	.device .send-btn {
+		background-color: #4a4b74;
+		height: 100%;
+		width: 50px;
+		min-width: 50px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		font-size: 25px;
+		margin-left: auto;
+	}
+
+	.device .cancel-btn {
+		height: 100%;
+		font-size: 20px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 50px;
+		box-sizing: border-box;
+		margin-left: auto;
+	}
 
 .hidden {
-    display: none !important;
+	display: none !important;
 }
