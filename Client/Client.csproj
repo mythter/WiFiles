@@ -50,6 +50,9 @@
 		<!--<WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>-->
 
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+
+		<!--Uncomment when publishing-->
+		<!--<WindowsPackageType>None</WindowsPackageType>-->
 	</PropertyGroup>
 
 	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows' and '$(RuntimeIdentifierOverride)' != ''">
