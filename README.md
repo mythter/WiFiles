@@ -21,6 +21,6 @@ Windows and Android application for sending and receiving files over local and g
 
 ## Local Transfer
 
-### Interface
+### Local Transfer Page
 
 <img width="965" height="452" alt="Artboard 3 copy" src="https://github.com/user-attachments/assets/1ecb5c56-6845-4728-a287-00112139dcba" />
